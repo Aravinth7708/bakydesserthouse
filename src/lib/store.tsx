@@ -670,14 +670,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           "Served",
           "Past Orders",
         ];
-        let nextStatus: OrderStatus = "New";
+
+        const target = orders.find((o) => o.id === id);
+        if (!target) return;
+
+        const idx = flow.indexOf(target.status);
+        const nextStatus = flow[Math.min(idx + 1, flow.length - 1)];
+
         setOrders((prev) => {
-          const next = prev.map((o) => {
-            if (o.id !== id) return o;
-            const idx = flow.indexOf(o.status);
-            nextStatus = flow[Math.min(idx + 1, flow.length - 1)];
-            return { ...o, status: nextStatus };
-          });
+          const next = prev.map((o) =>
+            o.id === id ? { ...o, status: nextStatus } : o,
+          );
           setLocal(LOCAL_ORDER_KEY, next);
           return next;
         });
