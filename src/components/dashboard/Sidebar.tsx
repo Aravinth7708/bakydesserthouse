@@ -105,7 +105,7 @@ export function Sidebar() {
               {isStaff ? (
                 <>
                   <UserCheck className="h-4 w-4 shrink-0 text-blue-700" />
-                  <span className="truncate">Staff: {currentUser.staffMember?.name || "Staff"}</span>
+                  <span className="truncate">Staff: {currentUser?.staffMember?.name || "Staff"}</span>
                 </>
               ) : (
                 <>

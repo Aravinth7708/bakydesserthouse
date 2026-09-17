@@ -30,7 +30,7 @@ export function Topbar({ title = "Dashboard" }: { title?: string }) {
               <>
                 <UserCheck className="h-4 w-4 text-blue-700 shrink-0" />
                 <span className="truncate max-w-[120px] sm:max-w-none">
-                  Staff: {currentUser.staffMember?.name || "Staff"}
+                  Staff: {currentUser?.staffMember?.name || "Staff"}
                 </span>
               </>
             ) : (
@@ -56,7 +56,7 @@ export function Topbar({ title = "Dashboard" }: { title?: string }) {
             title="Switch User / Access"
             className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1177E5] text-white font-bold text-xs shadow-sm hover:opacity-90 transition-opacity lg:h-10 lg:w-10 lg:text-sm"
           >
-            {isStaff ? currentUser.staffMember?.name.charAt(0).toUpperCase() || "S" : "A"}
+            {isStaff ? currentUser?.staffMember?.name?.charAt(0)?.toUpperCase() || "S" : "A"}
           </button>
         </div>
       </header>
