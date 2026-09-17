@@ -115,11 +115,43 @@ const initialInventory: InventoryItem[] = [
   { id: "n2", name: "Brownie Plates (Pack)", current: 7, max: 10 },
 ];
 
+const LOCAL_CAT_KEY = "baky_categories_v1";
+const LOCAL_ITEM_KEY = "baky_items_v1";
+const LOCAL_INV_KEY = "baky_inventory_v1";
+const LOCAL_ORDER_KEY = "baky_orders_v1";
+
+function getLocal<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function setLocal<T>(key: string, value: T) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    console.warn("Failed to write to localStorage:", e);
+  }
+}
+
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [categories, setCategories] = useState<Category[]>(initialCategories);
-  const [items, setItems] = useState<MenuItem[]>(initialItems);
-  const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [categories, setCategories] = useState<Category[]>(() =>
+    getLocal(LOCAL_CAT_KEY, initialCategories),
+  );
+  const [items, setItems] = useState<MenuItem[]>(() =>
+    getLocal(LOCAL_ITEM_KEY, initialItems),
+  );
+  const [inventory, setInventory] = useState<InventoryItem[]>(() =>
+    getLocal(LOCAL_INV_KEY, initialInventory),
+  );
+  const [orders, setOrders] = useState<Order[]>(() =>
+    getLocal(LOCAL_ORDER_KEY, []),
+  );
   const [orderNo, setOrderNo] = useState(1);
   const [isSynced, setIsSynced] = useState(false);
 
@@ -130,14 +162,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   };
 
-  // Fetch initial data from Supabase if configured
+  // Fetch initial data from Supabase
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) return;
-
     let mounted = true;
 
     async function loadData() {
-      if (!supabase) return;
       try {
         const [catRes, itemRes, invRes, orderRes] = await Promise.all([
           supabase.from("categories").select("*").order("created_at", { ascending: true }),
@@ -148,49 +177,49 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         if (!mounted) return;
 
-        if (catRes.data) {
-          setCategories(
-            catRes.data.map((c: any) => ({
-              id: c.id,
-              name: c.name,
-              enabled: c.enabled,
-            })),
-          );
+        if (catRes.data && catRes.data.length > 0) {
+          const loadedCats = catRes.data.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            enabled: c.enabled,
+          }));
+          setCategories(loadedCats);
+          setLocal(LOCAL_CAT_KEY, loadedCats);
         }
 
-        if (itemRes.data) {
-          setItems(
-            itemRes.data.map((i: any) => ({
-              id: i.id,
-              name: i.name,
-              price: Number(i.price),
-              categoryId: i.category_id,
-              variants: i.variants || [],
-              enabled: i.enabled,
-            })),
-          );
+        if (itemRes.data && itemRes.data.length > 0) {
+          const loadedItems = itemRes.data.map((i: any) => ({
+            id: i.id,
+            name: i.name,
+            price: Number(i.price),
+            categoryId: i.category_id,
+            variants: i.variants || [],
+            enabled: i.enabled,
+          }));
+          setItems(loadedItems);
+          setLocal(LOCAL_ITEM_KEY, loadedItems);
         }
 
-        if (invRes.data) {
-          setInventory(
-            invRes.data.map((n: any) => ({
-              id: n.id,
-              name: n.name,
-              current: Number(n.current),
-              max: Number(n.max),
-            })),
-          );
+        if (invRes.data && invRes.data.length > 0) {
+          const loadedInv = invRes.data.map((n: any) => ({
+            id: n.id,
+            name: n.name,
+            current: Number(n.current),
+            max: Number(n.max),
+          }));
+          setInventory(loadedInv);
+          setLocal(LOCAL_INV_KEY, loadedInv);
         }
 
-        if (orderRes.data) {
-          setOrders(
-            orderRes.data.map((o: any) => ({
-              id: o.id,
-              lines: o.lines || [],
-              total: Number(o.total),
-              status: o.status,
-            })),
-          );
+        if (orderRes.data && orderRes.data.length > 0) {
+          const loadedOrders = orderRes.data.map((o: any) => ({
+            id: o.id,
+            lines: o.lines || [],
+            total: Number(o.total),
+            status: o.status,
+          }));
+          setOrders(loadedOrders);
+          setLocal(LOCAL_ORDER_KEY, loadedOrders);
           setOrderNo(orderRes.data.length + 1);
         }
 
@@ -227,68 +256,94 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const trimmed = name.trim();
         if (!trimmed) return;
         const newCat: Category = { id: generateId("cat"), name: trimmed, enabled: true };
-        setCategories((prev) => [...prev, newCat]);
-        if (supabase && isSupabaseConfigured) {
-          const { error } = await supabase.from("categories").insert({
-            id: newCat.id,
-            name: newCat.name,
-            enabled: newCat.enabled,
-          });
-          if (error) {
-            toast.error(`Database error: ${error.message}`);
-            return;
-          }
+        
+        // Optimistically update state & local storage
+        setCategories((prev) => {
+          const next = [...prev, newCat];
+          setLocal(LOCAL_CAT_KEY, next);
+          return next;
+        });
+
+        // Persist to Supabase
+        const { error } = await supabase.from("categories").insert({
+          id: newCat.id,
+          name: newCat.name,
+          enabled: newCat.enabled,
+        });
+
+        if (error) {
+          console.error("Supabase insert category error:", error);
+          toast.error(`Database error: ${error.message}`);
+          return;
         }
-        toast.success(`Category "${trimmed}" added`);
+
+        toast.success(`Category "${trimmed}" added and saved`);
       },
       updateCategory: async (id: string, name: string) => {
         const trimmed = name.trim();
         if (!trimmed) return;
-        setCategories((prev) =>
-          prev.map((c) => (c.id === id ? { ...c, name: trimmed } : c)),
-        );
-        if (supabase && isSupabaseConfigured) {
-          const { error } = await supabase
-            .from("categories")
-            .update({ name: trimmed })
-            .eq("id", id);
-          if (error) {
-            toast.error(`Database error: ${error.message}`);
-            return;
-          }
+        setCategories((prev) => {
+          const next = prev.map((c) => (c.id === id ? { ...c, name: trimmed } : c));
+          setLocal(LOCAL_CAT_KEY, next);
+          return next;
+        });
+
+        const { error } = await supabase
+          .from("categories")
+          .update({ name: trimmed })
+          .eq("id", id);
+
+        if (error) {
+          console.error("Supabase update category error:", error);
+          toast.error(`Database error: ${error.message}`);
+          return;
         }
+
         toast.success(`Category renamed to "${trimmed}"`);
       },
       deleteCategory: async (id: string) => {
         const target = categories.find((c) => c.id === id);
-        setCategories((prev) => prev.filter((c) => c.id !== id));
-        setItems((prev) => prev.filter((i) => i.categoryId !== id));
-        if (supabase && isSupabaseConfigured) {
-          const { error } = await supabase.from("categories").delete().eq("id", id);
-          if (error) {
-            toast.error(`Database error: ${error.message}`);
-            return;
-          }
+        setCategories((prev) => {
+          const next = prev.filter((c) => c.id !== id);
+          setLocal(LOCAL_CAT_KEY, next);
+          return next;
+        });
+        setItems((prev) => {
+          const next = prev.filter((i) => i.categoryId !== id);
+          setLocal(LOCAL_ITEM_KEY, next);
+          return next;
+        });
+
+        const { error } = await supabase.from("categories").delete().eq("id", id);
+        if (error) {
+          console.error("Supabase delete category error:", error);
+          toast.error(`Database error: ${error.message}`);
+          return;
         }
+
         toast.success(`Category "${target?.name || ''}" deleted`);
       },
       toggleCategory: async (id: string) => {
         const target = categories.find((c) => c.id === id);
         if (!target) return;
         const nextEnabled = !target.enabled;
-        setCategories((prev) =>
-          prev.map((c) => (c.id === id ? { ...c, enabled: nextEnabled } : c)),
-        );
-        if (supabase && isSupabaseConfigured) {
-          const { error } = await supabase
-            .from("categories")
-            .update({ enabled: nextEnabled })
-            .eq("id", id);
-          if (error) {
-            toast.error(`Database error: ${error.message}`);
-            return;
-          }
+        setCategories((prev) => {
+          const next = prev.map((c) => (c.id === id ? { ...c, enabled: nextEnabled } : c));
+          setLocal(LOCAL_CAT_KEY, next);
+          return next;
+        });
+
+        const { error } = await supabase
+          .from("categories")
+          .update({ enabled: nextEnabled })
+          .eq("id", id);
+
+        if (error) {
+          console.error("Supabase toggle category error:", error);
+          toast.error(`Database error: ${error.message}`);
+          return;
         }
+
         toast.success(
           nextEnabled
             ? `Category "${target.name}" enabled in POS`
@@ -304,27 +359,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           categoryId: input.categoryId,
           variants: input.variants,
         };
-        setItems((prev) => [...prev, newItem]);
-        if (supabase && isSupabaseConfigured) {
-          const { error } = await supabase.from("menu_items").insert({
-            id: newItem.id,
-            name: newItem.name,
-            price: newItem.price,
-            category_id: newItem.categoryId,
-            variants: newItem.variants,
-            enabled: newItem.enabled,
-          });
-          if (error) {
-            toast.error(`Database error: ${error.message}`);
-            return;
-          }
+        setItems((prev) => {
+          const next = [...prev, newItem];
+          setLocal(LOCAL_ITEM_KEY, next);
+          return next;
+        });
+
+        const { error } = await supabase.from("menu_items").insert({
+          id: newItem.id,
+          name: newItem.name,
+          price: newItem.price,
+          category_id: newItem.categoryId,
+          variants: newItem.variants,
+          enabled: newItem.enabled,
+        });
+
+        if (error) {
+          console.error("Supabase insert item error:", error);
+          toast.error(`Database error: ${error.message}`);
+          return;
         }
-        toast.success(`Item "${newItem.name}" added`);
+
+        toast.success(`Item "${newItem.name}" added and saved`);
       },
       updateItem: async (id, input) => {
         const trimmed = input.name.trim();
-        setItems((prev) =>
-          prev.map((i) =>
+        setItems((prev) => {
+          const next = prev.map((i) =>
             i.id === id
               ? {
                   ...i,
@@ -334,54 +395,67 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   variants: input.variants,
                 }
               : i,
-          ),
-        );
-        if (supabase && isSupabaseConfigured) {
-          const { error } = await supabase
-            .from("menu_items")
-            .update({
-              name: trimmed,
-              price: input.price,
-              category_id: input.categoryId,
-              variants: input.variants,
-            })
-            .eq("id", id);
-          if (error) {
-            toast.error(`Database error: ${error.message}`);
-            return;
-          }
+          );
+          setLocal(LOCAL_ITEM_KEY, next);
+          return next;
+        });
+
+        const { error } = await supabase
+          .from("menu_items")
+          .update({
+            name: trimmed,
+            price: input.price,
+            category_id: input.categoryId,
+            variants: input.variants,
+          })
+          .eq("id", id);
+
+        if (error) {
+          console.error("Supabase update item error:", error);
+          toast.error(`Database error: ${error.message}`);
+          return;
         }
+
         toast.success(`Item "${trimmed}" updated`);
       },
       deleteItem: async (id: string) => {
         const target = items.find((i) => i.id === id);
-        setItems((prev) => prev.filter((i) => i.id !== id));
-        if (supabase && isSupabaseConfigured) {
-          const { error } = await supabase.from("menu_items").delete().eq("id", id);
-          if (error) {
-            toast.error(`Database error: ${error.message}`);
-            return;
-          }
+        setItems((prev) => {
+          const next = prev.filter((i) => i.id !== id);
+          setLocal(LOCAL_ITEM_KEY, next);
+          return next;
+        });
+
+        const { error } = await supabase.from("menu_items").delete().eq("id", id);
+        if (error) {
+          console.error("Supabase delete item error:", error);
+          toast.error(`Database error: ${error.message}`);
+          return;
         }
+
         toast.success(`Item "${target?.name || ''}" deleted`);
       },
       toggleItem: async (id: string) => {
         const target = items.find((i) => i.id === id);
         if (!target) return;
         const nextEnabled = !target.enabled;
-        setItems((prev) =>
-          prev.map((i) => (i.id === id ? { ...i, enabled: nextEnabled } : i)),
-        );
-        if (supabase && isSupabaseConfigured) {
-          const { error } = await supabase
-            .from("menu_items")
-            .update({ enabled: nextEnabled })
-            .eq("id", id);
-          if (error) {
-            toast.error(`Database error: ${error.message}`);
-            return;
-          }
+        setItems((prev) => {
+          const next = prev.map((i) => (i.id === id ? { ...i, enabled: nextEnabled } : i));
+          setLocal(LOCAL_ITEM_KEY, next);
+          return next;
+        });
+
+        const { error } = await supabase
+          .from("menu_items")
+          .update({ enabled: nextEnabled })
+          .eq("id", id);
+
+        if (error) {
+          console.error("Supabase toggle item error:", error);
+          toast.error(`Database error: ${error.message}`);
+          return;
         }
+
         toast.success(
           nextEnabled
             ? `"${target.name}" enabled in POS`
