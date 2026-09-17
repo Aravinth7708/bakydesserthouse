@@ -75,57 +75,57 @@ export function CloseOrderModal({ order, onClose }: CloseOrderModalProps) {
     bgColor: string;
     borderColor: string;
   }[] = [
-    {
-      id: "Cash",
-      label: "Cash",
-      description: "Received full payment in cash",
-      icon: Banknote,
-      color: "text-emerald-700",
-      bgColor: "bg-emerald-50 hover:bg-emerald-100/70",
-      borderColor: "border-emerald-500",
-    },
-    {
-      id: "GPay",
-      label: "GPay / UPI",
-      description: "Paid via GPay, PhonePe, or QR Code",
-      icon: Smartphone,
-      color: "text-blue-700",
-      bgColor: "bg-blue-50 hover:bg-blue-100/70",
-      borderColor: "border-blue-500",
-    },
-    {
-      id: "Online Orders",
-      label: "Online Orders",
-      description: "Zomato, Swiggy or Online platform",
-      icon: Globe,
-      color: "text-purple-700",
-      bgColor: "bg-purple-50 hover:bg-purple-100/70",
-      borderColor: "border-purple-500",
-    },
-    {
-      id: "Split Payment",
-      label: "Split Payment",
-      description: "Half GPay / Cash or custom split",
-      icon: Split,
-      color: "text-indigo-700",
-      bgColor: "bg-indigo-50 hover:bg-indigo-100/70",
-      borderColor: "border-indigo-500",
-    },
-    {
-      id: "Nil",
-      label: "Nil (Item given - Payment pending)",
-      description: "Order served but payment not received yet",
-      icon: AlertCircle,
-      color: "text-amber-800",
-      bgColor: "bg-amber-50 hover:bg-amber-100/70",
-      borderColor: "border-amber-500",
-    },
-  ];
+      {
+        id: "Cash",
+        label: "Cash",
+        description: "Received full payment in cash",
+        icon: Banknote,
+        color: "text-emerald-700",
+        bgColor: "bg-emerald-50 hover:bg-emerald-100/70",
+        borderColor: "border-emerald-500",
+      },
+      {
+        id: "GPay",
+        label: "GPay / UPI",
+        description: "Paid via GPay, PhonePe, or QR Code",
+        icon: Smartphone,
+        color: "text-blue-700",
+        bgColor: "bg-blue-50 hover:bg-blue-100/70",
+        borderColor: "border-blue-500",
+      },
+      {
+        id: "Online Orders",
+        label: "Online Orders",
+        description: "Zomato, Swiggy or Online platform",
+        icon: Globe,
+        color: "text-purple-700",
+        bgColor: "bg-purple-50 hover:bg-purple-100/70",
+        borderColor: "border-purple-500",
+      },
+      {
+        id: "Split Payment",
+        label: "Split Payment",
+        description: "Half GPay / Cash or custom split",
+        icon: Split,
+        color: "text-indigo-700",
+        bgColor: "bg-indigo-50 hover:bg-indigo-100/70",
+        borderColor: "border-indigo-500",
+      },
+      {
+        id: "Nil",
+        label: "Nil (Item given - Payment pending)",
+        description: "Order served but payment not received yet",
+        icon: AlertCircle,
+        color: "text-amber-800",
+        bgColor: "bg-amber-50 hover:bg-amber-100/70",
+        borderColor: "border-amber-500",
+      },
+    ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-3 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
       <div className="relative w-full max-w-lg rounded-2xl bg-white p-4 shadow-2xl transition-all sm:p-6 my-auto max-h-[90vh] flex flex-col min-w-0">
-        
+
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
           <div>
@@ -173,15 +173,14 @@ export function CloseOrderModal({ order, onClose }: CloseOrderModalProps) {
                     opt.bgColor
                   } ${
                     isSelected
-                      ? `${opt.borderColor} shadow-sm ring-1 ring-offset-1 ring-${opt.borderColor.split('-')[1]}-400`
+                      ? opt.borderColor
                       : "border-gray-200 hover:border-gray-300"
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0 pr-2">
                     <div
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
-                        isSelected ? "bg-white shadow-sm" : "bg-white/80"
-                      }`}
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${isSelected ? "bg-white shadow-sm" : "bg-white/80"
+                        }`}
                     >
                       <Icon className={`h-5 w-5 ${opt.color}`} />
                     </div>
@@ -196,11 +195,10 @@ export function CloseOrderModal({ order, onClose }: CloseOrderModalProps) {
                   </div>
                   <div className="shrink-0 pl-1">
                     <div
-                      className={`flex h-6 w-6 items-center justify-center rounded-full border ${
-                        isSelected
+                      className={`flex h-6 w-6 items-center justify-center rounded-full border ${isSelected
                           ? "border-black bg-black text-white"
                           : "border-gray-300 bg-white"
-                      }`}
+                        }`}
                     >
                       {isSelected && <Check className="h-3.5 w-3.5 stroke-[3]" />}
                     </div>
