@@ -301,40 +301,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           setLocal(LOCAL_INV_KEY, loadedInv);
         }
 
-        if (orderRes?.data) {
-          // Filter out legacy mock orders (#0001, #0002, #0003, #0004, #0006, #0008)
-          const demoIds = ["#0001", "#0002", "#0003", "#0004", "#0005", "#0006", "#0007", "#0008"];
-          const filteredData = orderRes.data.filter((o: any) => !demoIds.includes(o.id));
+        if (orderRes?.data && orderRes.data.length > 0) {
+          const loadedOrders = orderRes.data.map((o: any) => ({
+            id: o.id,
+            lines: o.lines || [],
+            total: Number(o.total),
+            status: o.status,
+            paymentMethod: o.payment_method || o.paymentMethod || undefined,
+            paymentDetails: o.payment_details || o.paymentDetails || undefined,
+          }));
 
-          // If legacy demo orders were found in database, delete them from Supabase
-          const hasDemo = orderRes.data.some((o: any) => demoIds.includes(o.id));
-          if (hasDemo && supabase && isSupabaseConfigured) {
-            await supabase.from("orders").delete().in("id", demoIds);
-          }
+          const maxNum = loadedOrders.reduce((max: number, o: any) => {
+            const num = parseInt(o.id.replace(/\D/g, ""), 10);
+            return isNaN(num) ? max : Math.max(max, num);
+          }, 0);
+          setOrderNo(maxNum + 1);
 
-          if (filteredData.length > 0) {
-            const loadedOrders = filteredData.map((o: any) => ({
-              id: o.id,
-              lines: o.lines || [],
-              total: Number(o.total),
-              status: o.status,
-              paymentMethod: o.payment_method || o.paymentMethod || undefined,
-              paymentDetails: o.payment_details || o.paymentDetails || undefined,
-            }));
-
-            const maxNum = loadedOrders.reduce((max: number, o: any) => {
-              const num = parseInt(o.id.replace(/\D/g, ""), 10);
-              return isNaN(num) ? max : Math.max(max, num);
-            }, 0);
-            setOrderNo(maxNum + 1);
-
-            setOrders(loadedOrders);
-            setLocal(LOCAL_ORDER_KEY, loadedOrders);
-          } else {
-            setOrders([]);
-            setOrderNo(1);
-            setLocal(LOCAL_ORDER_KEY, []);
-          }
+          setOrders(loadedOrders);
+          setLocal(LOCAL_ORDER_KEY, loadedOrders);
+        } else if (orderRes?.data && orderRes.data.length === 0) {
+          setOrders([]);
+          setOrderNo(1);
+          setLocal(LOCAL_ORDER_KEY, []);
         }
 
         if (staffRes?.data && staffRes.data.length > 0) {
