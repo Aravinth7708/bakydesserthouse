@@ -207,9 +207,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [inventory, setInventory] = useState<InventoryItem[]>(() =>
     getLocal(LOCAL_INV_KEY, initialInventory),
   );
-  const [orders, setOrders] = useState<Order[]>(() =>
-    getLocal(LOCAL_ORDER_KEY, initialOrders),
-  );
+  const [orders, setOrders] = useState<Order[]>(() => {
+    if (typeof window !== "undefined" && !localStorage.getItem("baky_orders_purged_v1")) {
+      localStorage.removeItem(LOCAL_ORDER_KEY);
+      return [];
+    }
+    return getLocal(LOCAL_ORDER_KEY, initialOrders);
+  });
   const [staff, setStaff] = useState<StaffMember[]>(() =>
     getLocal(LOCAL_STAFF_KEY, initialStaff),
   );
@@ -236,6 +240,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     async function loadData() {
       try {
+        // One-time automatic purge of legacy mock orders (#0001, #0002, #0003, #0004, etc.)
+        if (typeof window !== "undefined" && !localStorage.getItem("baky_orders_purged_v1")) {
+          localStorage.setItem("baky_orders_purged_v1", "true");
+          setOrders([]);
+          setLocal(LOCAL_ORDER_KEY, []);
+          setOrderNo(1);
+          if (supabase && isSupabaseConfigured) {
+            await supabase.from("orders").delete().neq("id", "___NONE___");
+          }
+        }
+
         const results = await Promise.allSettled([
           supabase.from("categories").select("*").order("created_at", { ascending: true }),
           supabase.from("menu_items").select("*").order("created_at", { ascending: true }),
@@ -286,29 +301,40 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           setLocal(LOCAL_INV_KEY, loadedInv);
         }
 
-        if (orderRes?.data && orderRes.data.length > 0) {
-          const loadedOrders = orderRes.data.map((o: any) => ({
-            id: o.id,
-            lines: o.lines || [],
-            total: Number(o.total),
-            status: o.status,
-            paymentMethod: o.payment_method || o.paymentMethod || undefined,
-            paymentDetails: o.payment_details || o.paymentDetails || undefined,
-          }));
+        if (orderRes?.data) {
+          // Filter out legacy mock orders (#0001, #0002, #0003, #0004, #0006, #0008)
+          const demoIds = ["#0001", "#0002", "#0003", "#0004", "#0005", "#0006", "#0007", "#0008"];
+          const filteredData = orderRes.data.filter((o: any) => !demoIds.includes(o.id));
 
-          // Calculate highest numerical order number across all orders
-          const maxNum = loadedOrders.reduce((max: number, o: any) => {
-            const num = parseInt(o.id.replace(/\D/g, ""), 10);
-            return isNaN(num) ? max : Math.max(max, num);
-          }, 0);
-          setOrderNo(maxNum + 1);
+          // If legacy demo orders were found in database, delete them from Supabase
+          const hasDemo = orderRes.data.some((o: any) => demoIds.includes(o.id));
+          if (hasDemo && supabase && isSupabaseConfigured) {
+            await supabase.from("orders").delete().in("id", demoIds);
+          }
 
-          setOrders(loadedOrders);
-          setLocal(LOCAL_ORDER_KEY, loadedOrders);
-        } else if (orderRes?.data && orderRes.data.length === 0) {
-          setOrders([]);
-          setOrderNo(1);
-          setLocal(LOCAL_ORDER_KEY, []);
+          if (filteredData.length > 0) {
+            const loadedOrders = filteredData.map((o: any) => ({
+              id: o.id,
+              lines: o.lines || [],
+              total: Number(o.total),
+              status: o.status,
+              paymentMethod: o.payment_method || o.paymentMethod || undefined,
+              paymentDetails: o.payment_details || o.paymentDetails || undefined,
+            }));
+
+            const maxNum = loadedOrders.reduce((max: number, o: any) => {
+              const num = parseInt(o.id.replace(/\D/g, ""), 10);
+              return isNaN(num) ? max : Math.max(max, num);
+            }, 0);
+            setOrderNo(maxNum + 1);
+
+            setOrders(loadedOrders);
+            setLocal(LOCAL_ORDER_KEY, loadedOrders);
+          } else {
+            setOrders([]);
+            setOrderNo(1);
+            setLocal(LOCAL_ORDER_KEY, []);
+          }
         }
 
         if (staffRes?.data && staffRes.data.length > 0) {
