@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { MenuBoard } from "@/components/dashboard/MenuBoard";
+import { StaffRestrictedView } from "@/components/dashboard/StaffRestrictedView";
+import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/menu")({
   head: () => ({
@@ -23,6 +25,8 @@ export const Route = createFileRoute("/menu")({
 });
 
 function Menu() {
+  const { currentUser } = useStore();
+
   return (
     <div className="flex h-full w-full overflow-hidden bg-white font-sans text-black">
       <Sidebar />
@@ -31,7 +35,11 @@ function Menu() {
         <Topbar title="Manage Menu" />
 
         <main className="flex flex-1 overflow-y-auto p-4 lg:p-6">
-          <MenuBoard />
+          {currentUser?.role === "Staff" ? (
+            <StaffRestrictedView pageName="Manage Menu" />
+          ) : (
+            <MenuBoard />
+          )}
         </main>
       </div>
     </div>

@@ -29,6 +29,13 @@ export type InventoryItem = {
 
 export type OrderStatus = "New" | "Preparing" | "Served" | "Past Orders";
 
+export type PaymentMethod =
+  | "Cash"
+  | "GPay"
+  | "Online Orders"
+  | "Split Payment"
+  | "Nil";
+
 export type OrderLine = { name: string; price: number; qty: number };
 
 export type Order = {
@@ -36,6 +43,23 @@ export type Order = {
   lines: OrderLine[];
   total: number;
   status: OrderStatus;
+  paymentMethod?: PaymentMethod | string;
+  paymentDetails?: string;
+};
+
+export type StaffMember = {
+  id: string;
+  name: string;
+  phone: string;
+  password: string;
+  createdAt?: string;
+};
+
+export type UserRole = "Admin" | "Staff";
+
+export type CurrentUser = {
+  role: UserRole;
+  staffMember?: StaffMember;
 };
 
 type Store = {
@@ -43,6 +67,8 @@ type Store = {
   items: MenuItem[];
   inventory: InventoryItem[];
   orders: Order[];
+  staff: StaffMember[];
+  currentUser: CurrentUser;
   isSynced: boolean;
   addCategory: (name: string) => Promise<void>;
   updateCategory: (id: string, name: string) => Promise<void>;
@@ -69,6 +95,20 @@ type Store = {
   updateStock: (id: string, current: number, max: number) => Promise<void>;
   placeOrder: (lines: OrderLine[]) => Promise<void>;
   advanceOrder: (id: string) => Promise<void>;
+  closeOrder: (
+    id: string,
+    paymentMethod: PaymentMethod | string,
+    paymentDetails?: string,
+  ) => Promise<void>;
+  addStaff: (input: { name: string; phone: string; password: string }) => Promise<void>;
+  updateStaff: (
+    id: string,
+    input: { name: string; phone: string; password: string },
+  ) => Promise<void>;
+  deleteStaff: (id: string) => Promise<void>;
+  loginAsStaff: (phone: string, pass: string) => boolean;
+  switchToAdmin: (pass: string) => boolean;
+  logout: () => void;
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -156,6 +196,17 @@ const LOCAL_CAT_KEY = "baky_categories_v1";
 const LOCAL_ITEM_KEY = "baky_items_v1";
 const LOCAL_INV_KEY = "baky_inventory_v1";
 const LOCAL_ORDER_KEY = "baky_orders_v1";
+const LOCAL_STAFF_KEY = "baky_staff_v1";
+const LOCAL_USER_KEY = "baky_user_v1";
+
+const initialStaff: StaffMember[] = [
+  {
+    id: "s1",
+    name: "Staff 1",
+    phone: "9876543210",
+    password: "1234",
+  },
+];
 
 function getLocal<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
@@ -189,6 +240,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>(() =>
     getLocal(LOCAL_ORDER_KEY, initialOrders),
   );
+  const [staff, setStaff] = useState<StaffMember[]>(() =>
+    getLocal(LOCAL_STAFF_KEY, initialStaff),
+  );
+  const [currentUser, setCurrentUser] = useState<CurrentUser>(() => {
+    const saved = getLocal<any>(LOCAL_USER_KEY, null);
+    if (saved && typeof saved === "object" && (saved.role === "Admin" || saved.role === "Staff")) {
+      return saved as CurrentUser;
+    }
+    return { role: "Admin" };
+  });
   const [orderNo, setOrderNo] = useState(5);
   const [isSynced, setIsSynced] = useState(false);
 
@@ -254,6 +315,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             lines: o.lines || [],
             total: Number(o.total),
             status: o.status,
+            paymentMethod: o.payment_method || o.paymentMethod || undefined,
+            paymentDetails: o.payment_details || o.paymentDetails || undefined,
           }));
           setOrders(loadedOrders);
           setLocal(LOCAL_ORDER_KEY, loadedOrders);
@@ -297,6 +360,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       items,
       inventory,
       orders,
+      staff,
+      currentUser,
       isSynced,
       addCategory: async (name: string) => {
         const trimmed = name.trim();
@@ -554,14 +619,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           "Past Orders",
         ];
         let nextStatus: OrderStatus = "New";
-        setOrders((prev) =>
-          prev.map((o) => {
+        setOrders((prev) => {
+          const next = prev.map((o) => {
             if (o.id !== id) return o;
             const idx = flow.indexOf(o.status);
             nextStatus = flow[Math.min(idx + 1, flow.length - 1)];
             return { ...o, status: nextStatus };
-          }),
-        );
+          });
+          setLocal(LOCAL_ORDER_KEY, next);
+          return next;
+        });
         if (supabase && isSupabaseConfigured) {
           await supabase
             .from("orders")
@@ -569,8 +636,150 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             .eq("id", id);
         }
       },
+      closeOrder: async (id, paymentMethod, paymentDetails) => {
+        setOrders((prev) => {
+          const next = prev.map((o) => {
+            if (o.id !== id) return o;
+            return {
+              ...o,
+              status: "Past Orders" as OrderStatus,
+              paymentMethod,
+              paymentDetails,
+            };
+          });
+          setLocal(LOCAL_ORDER_KEY, next);
+          return next;
+        });
+
+        if (supabase && isSupabaseConfigured) {
+          try {
+            await supabase
+              .from("orders")
+              .update({
+                status: "Past Orders",
+                payment_method: paymentMethod,
+                payment_details: paymentDetails || null,
+              })
+              .eq("id", id);
+          } catch (e) {
+            console.warn("Failed updating payment method in Supabase:", e);
+            await supabase.from("orders").update({ status: "Past Orders" }).eq("id", id);
+          }
+        }
+        toast.success(`Order ${id} closed (${paymentMethod})`);
+      },
+      addStaff: async (input) => {
+        const name = input.name.trim();
+        const phone = input.phone.trim();
+        const password = input.password.trim();
+        if (!name || !phone || !password) {
+          toast.error("Please provide Name, Phone Number, and Password");
+          return;
+        }
+
+        const newStaff: StaffMember = {
+          id: generateId("staff"),
+          name,
+          phone,
+          password,
+          createdAt: new Date().toISOString(),
+        };
+
+        setStaff((prev) => {
+          const next = [...prev, newStaff];
+          setLocal(LOCAL_STAFF_KEY, next);
+          return next;
+        });
+
+        if (supabase && isSupabaseConfigured) {
+          try {
+            await supabase.from("staff").insert({
+              id: newStaff.id,
+              name: newStaff.name,
+              phone: newStaff.phone,
+              password: newStaff.password,
+            });
+          } catch (e) {
+            console.warn("Supabase staff insert error:", e);
+          }
+        }
+        toast.success(`Staff member "${name}" added successfully`);
+      },
+      updateStaff: async (id, input) => {
+        const name = input.name.trim();
+        const phone = input.phone.trim();
+        const password = input.password.trim();
+
+        setStaff((prev) => {
+          const next = prev.map((s) =>
+            s.id === id ? { ...s, name, phone, password } : s,
+          );
+          setLocal(LOCAL_STAFF_KEY, next);
+          return next;
+        });
+
+        if (supabase && isSupabaseConfigured) {
+          try {
+            await supabase
+              .from("staff")
+              .update({ name, phone, password })
+              .eq("id", id);
+          } catch (e) {
+            console.warn("Supabase staff update error:", e);
+          }
+        }
+        toast.success("Staff details updated");
+      },
+      deleteStaff: async (id) => {
+        const target = staff.find((s) => s.id === id);
+        setStaff((prev) => {
+          const next = prev.filter((s) => s.id !== id);
+          setLocal(LOCAL_STAFF_KEY, next);
+          return next;
+        });
+
+        if (supabase && isSupabaseConfigured) {
+          try {
+            await supabase.from("staff").delete().eq("id", id);
+          } catch (e) {
+            console.warn("Supabase staff delete error:", e);
+          }
+        }
+        toast.success(`Staff "${target?.name || ''}" removed`);
+      },
+      loginAsStaff: (phone, pass) => {
+        const found = staff.find(
+          (s) => s.phone.trim() === phone.trim() && s.password === pass.trim(),
+        );
+        if (found) {
+          const userState: CurrentUser = { role: "Staff", staffMember: found };
+          setCurrentUser(userState);
+          setLocal(LOCAL_USER_KEY, userState);
+          toast.success(`Welcome ${found.name}! Access limited to POS & Orders.`);
+          return true;
+        }
+        toast.error("Invalid Staff Phone Number or Password");
+        return false;
+      },
+      switchToAdmin: (pass) => {
+        if (pass.trim() === "1234" || pass.trim() === "admin") {
+          const userState: CurrentUser = { role: "Admin" };
+          setCurrentUser(userState);
+          setLocal(LOCAL_USER_KEY, userState);
+          toast.success("Switched to Admin Mode (Full Access)");
+          return true;
+        }
+        toast.error("Incorrect Admin Password (default is 1234)");
+        return false;
+      },
+      logout: () => {
+        const userState: CurrentUser = { role: "Admin" };
+        setCurrentUser(userState);
+        setLocal(LOCAL_USER_KEY, userState);
+        toast.info("Logged out to Admin Mode");
+      },
     }),
-    [categories, items, inventory, orders, orderNo, isSynced],
+    [categories, items, inventory, orders, staff, currentUser, orderNo, isSynced],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

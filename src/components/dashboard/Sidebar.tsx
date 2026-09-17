@@ -9,23 +9,34 @@ import {
   LogOut,
   Menu as MenuIcon,
   X,
+  UserCheck,
+  ShieldCheck,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { useStore } from "@/lib/store";
+import { SwitchUserModal } from "./SwitchUserModal";
 
-const linkItems = [
-  { label: "Dashboard", icon: LayoutGrid, to: "/", exact: true },
-  { label: "POS", icon: MonitorSmartphone, to: "/pos", exact: false },
-  { label: "Orders", icon: ShoppingCart, to: "/orders", exact: false },
-  { label: "Menu", icon: UtensilsCrossed, to: "/menu", exact: false },
-  { label: "Inventory", icon: FileCheck, to: "/inventory", exact: false },
-  { label: "Manage", icon: Store, to: "/manage", exact: false },
+const allLinkItems = [
+  { label: "Dashboard", icon: LayoutGrid, to: "/", exact: true, adminOnly: true },
+  { label: "POS", icon: MonitorSmartphone, to: "/pos", exact: false, adminOnly: false },
+  { label: "Orders", icon: ShoppingCart, to: "/orders", exact: false, adminOnly: false },
+  { label: "Menu", icon: UtensilsCrossed, to: "/menu", exact: false, adminOnly: true },
+  { label: "Inventory", icon: FileCheck, to: "/inventory", exact: false, adminOnly: true },
+  { label: "Manage", icon: Store, to: "/manage", exact: false, adminOnly: true },
 ] as const;
 
 const stubItems = [{ label: "Help Center", icon: Info }] as const;
 
 export function Sidebar() {
   const [open, setOpen] = useState(false);
+  const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
+  const { currentUser, logout } = useStore();
+
+  const isStaff = currentUser?.role === "Staff";
+  const visibleLinkItems = allLinkItems.filter(
+    (item) => !isStaff || !item.adminOnly
+  );
 
   return (
     <>
@@ -78,9 +89,36 @@ export function Sidebar() {
           </button>
         </div>
 
+        {/* Active Role Badge */}
+        <div className="mt-4 px-2">
+          <button
+            onClick={() => setIsSwitchModalOpen(true)}
+            className={`flex w-full items-center justify-between gap-2 rounded-xl p-2.5 text-xs font-bold transition-all ${
+              isStaff
+                ? "bg-blue-100/80 text-blue-900 border border-blue-200 hover:bg-blue-200/80"
+                : "bg-emerald-100/80 text-emerald-900 border border-emerald-200 hover:bg-emerald-200/80"
+            }`}
+          >
+            <div className="flex items-center gap-2 truncate">
+              {isStaff ? (
+                <>
+                  <UserCheck className="h-4 w-4 shrink-0 text-blue-700" />
+                  <span className="truncate">Staff: {currentUser.staffMember?.name || "Staff"}</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-700" />
+                  <span>Admin Mode</span>
+                </>
+              )}
+            </div>
+            <span className="text-[10px] underline shrink-0 font-semibold">Switch</span>
+          </button>
+        </div>
+
         {/* Nav */}
-        <nav className="mt-10 flex flex-col gap-2 lg:mt-14">
-          {linkItems.map(({ label, icon: Icon, to, exact }) => (
+        <nav className="mt-6 flex flex-col gap-2 lg:mt-8">
+          {visibleLinkItems.map(({ label, icon: Icon, to, exact }) => (
             <Link
               key={label}
               to={to}
@@ -115,12 +153,30 @@ export function Sidebar() {
           ))}
         </nav>
 
-        {/* Logout */}
-        <button className="mt-auto flex items-center gap-4 rounded-[13px] px-4 py-3 text-left text-xl font-medium text-black hover:bg-baky-card/60 lg:text-2xl">
-          <LogOut className="h-6 w-6 shrink-0 lg:h-7 lg:w-7" strokeWidth={1.75} />
-          Logout
-        </button>
+        {/* Switch User / Logout */}
+        <div className="mt-auto pt-4 space-y-2">
+          <button
+            onClick={() => setIsSwitchModalOpen(true)}
+            className="flex w-full items-center gap-4 rounded-[13px] px-4 py-3 text-left text-lg font-medium text-gray-700 hover:bg-baky-card/60 lg:text-xl"
+          >
+            <UserCheck className="h-6 w-6 shrink-0 text-[#1177E5] lg:h-7 lg:w-7" strokeWidth={1.75} />
+            Switch User
+          </button>
+          <button
+            onClick={() => logout()}
+            className="flex w-full items-center gap-4 rounded-[13px] px-4 py-3 text-left text-lg font-medium text-black hover:bg-baky-card/60 lg:text-xl"
+          >
+            <LogOut className="h-6 w-6 shrink-0 lg:h-7 lg:w-7" strokeWidth={1.75} />
+            Logout
+          </button>
+        </div>
       </aside>
+
+      {/* Switch User Modal */}
+      <SwitchUserModal
+        isOpen={isSwitchModalOpen}
+        onClose={() => setIsSwitchModalOpen(false)}
+      />
     </>
   );
 }

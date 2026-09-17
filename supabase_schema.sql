@@ -37,6 +37,17 @@ create table if not exists public.orders (
   lines jsonb not null default '[]'::jsonb,
   total numeric not null default 0,
   status text not null default 'New' check (status in ('New', 'Preparing', 'Served', 'Past Orders')),
+  payment_method text,
+  payment_details text,
+  created_at timestamptz not null default now()
+);
+
+-- 5. Staff Table
+create table if not exists public.staff (
+  id text primary key default gen_random_uuid()::text,
+  name text not null,
+  phone text not null unique,
+  password text not null,
   created_at timestamptz not null default now()
 );
 
@@ -45,18 +56,21 @@ alter table public.categories enable row level security;
 alter table public.menu_items enable row level security;
 alter table public.inventory enable row level security;
 alter table public.orders enable row level security;
+alter table public.staff enable row level security;
 
 -- Create Open Access Policies for Baky Internal Management
 create policy "Allow all operations on categories" on public.categories for all using (true) with check (true);
 create policy "Allow all operations on menu_items" on public.menu_items for all using (true) with check (true);
 create policy "Allow all operations on inventory" on public.inventory for all using (true) with check (true);
 create policy "Allow all operations on orders" on public.orders for all using (true) with check (true);
+create policy "Allow all operations on staff" on public.staff for all using (true) with check (true);
 
--- Optional: Enable Realtime for live order and inventory updates
+-- Optional: Enable Realtime for live order, inventory and staff updates
 alter publication supabase_realtime add table public.categories;
 alter publication supabase_realtime add table public.menu_items;
 alter publication supabase_realtime add table public.inventory;
 alter publication supabase_realtime add table public.orders;
+alter publication supabase_realtime add table public.staff;
 
 -- Seed initial data if tables are empty
 insert into public.categories (id, name, enabled)
