@@ -68,9 +68,11 @@ export function Sidebar() {
         {/* Brand + close */}
         <div className="flex items-center justify-between gap-3 px-2">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-baky-bar-strong text-2xl font-bold text-black">
-              B
-            </div>
+            <img
+              src="/baky-logo.png"
+              alt="Baky Logo"
+              className="h-12 w-12 shrink-0 rounded-full object-cover"
+            />
             <div className="min-w-0 leading-tight">
               <p className="truncate text-xl font-medium text-black lg:text-2xl">
                 Baky Dessert House
