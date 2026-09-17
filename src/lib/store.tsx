@@ -301,7 +301,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           setLocal(LOCAL_INV_KEY, loadedInv);
         }
 
-        if (orderRes?.data && orderRes.data.length > 0) {
+        if (orderRes?.data) {
           const loadedOrders = orderRes.data.map((o: any) => ({
             id: o.id,
             lines: o.lines || [],
@@ -311,18 +311,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             paymentDetails: o.payment_details || o.paymentDetails || undefined,
           }));
 
-          const maxNum = loadedOrders.reduce((max: number, o: any) => {
-            const num = parseInt(o.id.replace(/\D/g, ""), 10);
-            return isNaN(num) ? max : Math.max(max, num);
-          }, 0);
-          setOrderNo(maxNum + 1);
+          setOrders((prevLocal) => {
+            const loadedIds = new Set(loadedOrders.map((o: any) => o.id));
+            const unsyncedLocal = prevLocal.filter((o) => !loadedIds.has(o.id));
+            const combined = [...loadedOrders, ...unsyncedLocal];
 
-          setOrders(loadedOrders);
-          setLocal(LOCAL_ORDER_KEY, loadedOrders);
-        } else if (orderRes?.data && orderRes.data.length === 0) {
-          setOrders([]);
-          setOrderNo(1);
-          setLocal(LOCAL_ORDER_KEY, []);
+            const maxNum = combined.reduce((max: number, o: any) => {
+              const num = parseInt(o.id.replace(/\D/g, ""), 10);
+              return isNaN(num) ? max : Math.max(max, num);
+            }, 0);
+            setOrderNo(maxNum + 1);
+
+            setLocal(LOCAL_ORDER_KEY, combined);
+            return combined;
+          });
         }
 
         if (staffRes?.data && staffRes.data.length > 0) {
