@@ -113,6 +113,43 @@ const initialItems: MenuItem[] = [
 const initialInventory: InventoryItem[] = [
   { id: "n1", name: "Waffle Flour (kg)", current: 2, max: 10 },
   { id: "n2", name: "Brownie Plates (Pack)", current: 7, max: 10 },
+  { id: "n3", name: "Dark Compound (Pack)", current: 1, max: 10 },
+];
+
+const initialOrders: Order[] = [
+  {
+    id: "#0001",
+    lines: [
+      { name: "Hazelnut Waffle", price: 100, qty: 2 },
+      { name: "Choco Shake", price: 120, qty: 1 },
+    ],
+    total: 320,
+    status: "Served",
+  },
+  {
+    id: "#0002",
+    lines: [
+      { name: "Classic Waffle", price: 100, qty: 1 },
+      { name: "Hazelnut Waffle", price: 100, qty: 1 },
+    ],
+    total: 200,
+    status: "Served",
+  },
+  {
+    id: "#0003",
+    lines: [{ name: "Choco Shake", price: 120, qty: 2 }],
+    total: 240,
+    status: "Preparing",
+  },
+  {
+    id: "#0004",
+    lines: [
+      { name: "Hazelnut Waffle", price: 100, qty: 3 },
+      { name: "Classic Waffle", price: 100, qty: 2 },
+    ],
+    total: 500,
+    status: "New",
+  },
 ];
 
 const LOCAL_CAT_KEY = "baky_categories_v1";
@@ -150,9 +187,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     getLocal(LOCAL_INV_KEY, initialInventory),
   );
   const [orders, setOrders] = useState<Order[]>(() =>
-    getLocal(LOCAL_ORDER_KEY, []),
+    getLocal(LOCAL_ORDER_KEY, initialOrders),
   );
-  const [orderNo, setOrderNo] = useState(1);
+  const [orderNo, setOrderNo] = useState(5);
   const [isSynced, setIsSynced] = useState(false);
 
   const generateId = (prefix: string) => {
@@ -221,6 +258,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           setOrders(loadedOrders);
           setLocal(LOCAL_ORDER_KEY, loadedOrders);
           setOrderNo(orderRes.data.length + 1);
+        } else if (orderRes.data && orderRes.data.length === 0) {
+          for (const ord of initialOrders) {
+            await supabase.from("orders").insert({
+              id: ord.id,
+              lines: ord.lines,
+              total: ord.total,
+              status: ord.status,
+            });
+          }
         }
 
         setIsSynced(true);
