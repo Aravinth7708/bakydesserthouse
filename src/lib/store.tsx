@@ -198,32 +198,12 @@ function setLocal<T>(key: string, value: T) {
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [categories, setCategories] = useState<Category[]>(() =>
-    getLocal(LOCAL_CAT_KEY, initialCategories),
-  );
-  const [items, setItems] = useState<MenuItem[]>(() =>
-    getLocal(LOCAL_ITEM_KEY, initialItems),
-  );
-  const [inventory, setInventory] = useState<InventoryItem[]>(() =>
-    getLocal(LOCAL_INV_KEY, initialInventory),
-  );
-  const [orders, setOrders] = useState<Order[]>(() => {
-    if (typeof window !== "undefined" && !localStorage.getItem("baky_orders_purged_v1")) {
-      localStorage.removeItem(LOCAL_ORDER_KEY);
-      return [];
-    }
-    return getLocal(LOCAL_ORDER_KEY, initialOrders);
-  });
-  const [staff, setStaff] = useState<StaffMember[]>(() =>
-    getLocal(LOCAL_STAFF_KEY, initialStaff),
-  );
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(() => {
-    const saved = getLocal<any>(LOCAL_USER_KEY, null);
-    if (saved && typeof saved === "object" && (saved.role === "Admin" || saved.role === "Staff") && saved.isAuthenticated) {
-      return saved as CurrentUser;
-    }
-    return null;
-  });
+  const [categories, setCategories] = useState<Category[]>(initialCategories);
+  const [items, setItems] = useState<MenuItem[]>(initialItems);
+  const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory);
+  const [orders, setOrders] = useState<Order[]>(initialOrders);
+  const [staff, setStaff] = useState<StaffMember[]>(initialStaff);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [orderNo, setOrderNo] = useState(1);
   const [isSynced, setIsSynced] = useState(false);
 
@@ -233,6 +213,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   };
+
+  // Restore state from localStorage after initial client hydration to prevent Hydration Mismatch
+  useEffect(() => {
+    const savedCat = getLocal(LOCAL_CAT_KEY, initialCategories);
+    const savedItem = getLocal(LOCAL_ITEM_KEY, initialItems);
+    const savedInv = getLocal(LOCAL_INV_KEY, initialInventory);
+    const savedOrders = getLocal(LOCAL_ORDER_KEY, initialOrders);
+    const savedStaff = getLocal(LOCAL_STAFF_KEY, initialStaff);
+    const savedUser = getLocal<any>(LOCAL_USER_KEY, null);
+
+    setCategories(savedCat);
+    setItems(savedItem);
+    setInventory(savedInv);
+    setOrders(savedOrders);
+    setStaff(savedStaff);
+
+    if (savedUser && typeof savedUser === "object" && (savedUser.role === "Admin" || savedUser.role === "Staff") && savedUser.isAuthenticated) {
+      setCurrentUser(savedUser as CurrentUser);
+    }
+  }, []);
 
   // Fetch initial data from Supabase
   useEffect(() => {
