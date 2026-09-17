@@ -6,6 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { toast } from "sonner";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 export type Category = { id: string; name: string; enabled: boolean };
@@ -43,19 +44,31 @@ type Store = {
   inventory: InventoryItem[];
   orders: Order[];
   isSynced: boolean;
-  addCategory: (name: string) => Promise<void> | void;
-  toggleCategory: (id: string) => Promise<void> | void;
+  addCategory: (name: string) => Promise<void>;
+  updateCategory: (id: string, name: string) => Promise<void>;
+  deleteCategory: (id: string) => Promise<void>;
+  toggleCategory: (id: string) => Promise<void>;
   addItem: (input: {
     name: string;
     price: number;
     categoryId: string;
     variants: string[];
-  }) => Promise<void> | void;
-  toggleItem: (id: string) => Promise<void> | void;
-  addInventoryItem: (input: { name: string; current: number; max: number }) => Promise<void> | void;
-  updateStock: (id: string, current: number, max: number) => Promise<void> | void;
-  placeOrder: (lines: OrderLine[]) => Promise<void> | void;
-  advanceOrder: (id: string) => Promise<void> | void;
+  }) => Promise<void>;
+  updateItem: (
+    id: string,
+    input: {
+      name: string;
+      price: number;
+      categoryId: string;
+      variants: string[];
+    },
+  ) => Promise<void>;
+  deleteItem: (id: string) => Promise<void>;
+  toggleItem: (id: string) => Promise<void>;
+  addInventoryItem: (input: { name: string; current: number; max: number }) => Promise<void>;
+  updateStock: (id: string, current: number, max: number) => Promise<void>;
+  placeOrder: (lines: OrderLine[]) => Promise<void>;
+  advanceOrder: (id: string) => Promise<void>;
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -110,6 +123,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [orderNo, setOrderNo] = useState(1);
   const [isSynced, setIsSynced] = useState(false);
 
+  const generateId = (prefix: string) => {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return `${prefix}_${crypto.randomUUID()}`;
+    }
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  };
+
   // Fetch initial data from Supabase if configured
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
@@ -128,7 +148,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         if (!mounted) return;
 
-        if (catRes.data && catRes.data.length > 0) {
+        if (catRes.data) {
           setCategories(
             catRes.data.map((c: any) => ({
               id: c.id,
@@ -138,7 +158,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           );
         }
 
-        if (itemRes.data && itemRes.data.length > 0) {
+        if (itemRes.data) {
           setItems(
             itemRes.data.map((i: any) => ({
               id: i.id,
@@ -151,7 +171,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           );
         }
 
-        if (invRes.data && invRes.data.length > 0) {
+        if (invRes.data) {
           setInventory(
             invRes.data.map((n: any) => ({
               id: n.id,
@@ -162,7 +182,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           );
         }
 
-        if (orderRes.data && orderRes.data.length > 0) {
+        if (orderRes.data) {
           setOrders(
             orderRes.data.map((o: any) => ({
               id: o.id,
@@ -203,35 +223,90 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       inventory,
       orders,
       isSynced,
-      addCategory: async (name) => {
-        const newCat: Category = { id: nextId("c"), name, enabled: true };
+      addCategory: async (name: string) => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        const newCat: Category = { id: generateId("cat"), name: trimmed, enabled: true };
         setCategories((prev) => [...prev, newCat]);
         if (supabase && isSupabaseConfigured) {
-          await supabase.from("categories").insert({
+          const { error } = await supabase.from("categories").insert({
             id: newCat.id,
             name: newCat.name,
             enabled: newCat.enabled,
           });
+          if (error) {
+            toast.error(`Database error: ${error.message}`);
+            return;
+          }
         }
+        toast.success(`Category "${trimmed}" added`);
       },
-      toggleCategory: async (id) => {
+      updateCategory: async (id: string, name: string) => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        setCategories((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, name: trimmed } : c)),
+        );
+        if (supabase && isSupabaseConfigured) {
+          const { error } = await supabase
+            .from("categories")
+            .update({ name: trimmed })
+            .eq("id", id);
+          if (error) {
+            toast.error(`Database error: ${error.message}`);
+            return;
+          }
+        }
+        toast.success(`Category renamed to "${trimmed}"`);
+      },
+      deleteCategory: async (id: string) => {
         const target = categories.find((c) => c.id === id);
-        const nextEnabled = target ? !target.enabled : true;
+        setCategories((prev) => prev.filter((c) => c.id !== id));
+        setItems((prev) => prev.filter((i) => i.categoryId !== id));
+        if (supabase && isSupabaseConfigured) {
+          const { error } = await supabase.from("categories").delete().eq("id", id);
+          if (error) {
+            toast.error(`Database error: ${error.message}`);
+            return;
+          }
+        }
+        toast.success(`Category "${target?.name || ''}" deleted`);
+      },
+      toggleCategory: async (id: string) => {
+        const target = categories.find((c) => c.id === id);
+        if (!target) return;
+        const nextEnabled = !target.enabled;
         setCategories((prev) =>
           prev.map((c) => (c.id === id ? { ...c, enabled: nextEnabled } : c)),
         );
         if (supabase && isSupabaseConfigured) {
-          await supabase
+          const { error } = await supabase
             .from("categories")
             .update({ enabled: nextEnabled })
             .eq("id", id);
+          if (error) {
+            toast.error(`Database error: ${error.message}`);
+            return;
+          }
         }
+        toast.success(
+          nextEnabled
+            ? `Category "${target.name}" enabled in POS`
+            : `Category "${target.name}" hidden from POS`,
+        );
       },
       addItem: async (input) => {
-        const newItem: MenuItem = { id: nextId("i"), enabled: true, ...input };
+        const newItem: MenuItem = {
+          id: generateId("item"),
+          enabled: true,
+          name: input.name.trim(),
+          price: input.price,
+          categoryId: input.categoryId,
+          variants: input.variants,
+        };
         setItems((prev) => [...prev, newItem]);
         if (supabase && isSupabaseConfigured) {
-          await supabase.from("menu_items").insert({
+          const { error } = await supabase.from("menu_items").insert({
             id: newItem.id,
             name: newItem.name,
             price: newItem.price,
@@ -239,20 +314,79 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             variants: newItem.variants,
             enabled: newItem.enabled,
           });
+          if (error) {
+            toast.error(`Database error: ${error.message}`);
+            return;
+          }
         }
+        toast.success(`Item "${newItem.name}" added`);
       },
-      toggleItem: async (id) => {
+      updateItem: async (id, input) => {
+        const trimmed = input.name.trim();
+        setItems((prev) =>
+          prev.map((i) =>
+            i.id === id
+              ? {
+                  ...i,
+                  name: trimmed,
+                  price: input.price,
+                  categoryId: input.categoryId,
+                  variants: input.variants,
+                }
+              : i,
+          ),
+        );
+        if (supabase && isSupabaseConfigured) {
+          const { error } = await supabase
+            .from("menu_items")
+            .update({
+              name: trimmed,
+              price: input.price,
+              category_id: input.categoryId,
+              variants: input.variants,
+            })
+            .eq("id", id);
+          if (error) {
+            toast.error(`Database error: ${error.message}`);
+            return;
+          }
+        }
+        toast.success(`Item "${trimmed}" updated`);
+      },
+      deleteItem: async (id: string) => {
         const target = items.find((i) => i.id === id);
-        const nextEnabled = target ? !target.enabled : true;
+        setItems((prev) => prev.filter((i) => i.id !== id));
+        if (supabase && isSupabaseConfigured) {
+          const { error } = await supabase.from("menu_items").delete().eq("id", id);
+          if (error) {
+            toast.error(`Database error: ${error.message}`);
+            return;
+          }
+        }
+        toast.success(`Item "${target?.name || ''}" deleted`);
+      },
+      toggleItem: async (id: string) => {
+        const target = items.find((i) => i.id === id);
+        if (!target) return;
+        const nextEnabled = !target.enabled;
         setItems((prev) =>
           prev.map((i) => (i.id === id ? { ...i, enabled: nextEnabled } : i)),
         );
         if (supabase && isSupabaseConfigured) {
-          await supabase
+          const { error } = await supabase
             .from("menu_items")
             .update({ enabled: nextEnabled })
             .eq("id", id);
+          if (error) {
+            toast.error(`Database error: ${error.message}`);
+            return;
+          }
         }
+        toast.success(
+          nextEnabled
+            ? `"${target.name}" enabled in POS`
+            : `"${target.name}" hidden from POS`,
+        );
       },
       addInventoryItem: async (input) => {
         const newInv: InventoryItem = { id: nextId("n"), ...input };

@@ -1,14 +1,27 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useStore, type OrderLine } from "@/lib/store";
 
 export function PosBoard() {
   const { categories, items, placeOrder } = useStore();
-  const [activeCat, setActiveCat] = useState<string>(categories[0]?.id ?? "");
+  const enabledCategories = categories.filter((c) => c.enabled);
+  const [activeCat, setActiveCat] = useState<string>(enabledCategories[0]?.id ?? "");
   const [cart, setCart] = useState<Record<string, OrderLine>>({});
 
+  // Auto-sync activeCat if categories update, load from Supabase, or get disabled
+  useEffect(() => {
+    if (enabledCategories.length > 0 && !enabledCategories.some((c) => c.id === activeCat)) {
+      setActiveCat(enabledCategories[0].id);
+    } else if (enabledCategories.length === 0) {
+      setActiveCat("");
+    }
+  }, [categories, activeCat]);
+
   const visibleItems = items.filter(
-    (i) => i.enabled && (activeCat ? i.categoryId === activeCat : true),
+    (i) =>
+      i.enabled &&
+      enabledCategories.some((c) => c.id === i.categoryId) &&
+      (activeCat ? i.categoryId === activeCat : true),
   );
 
   const addToCart = (name: string, price: number) => {
@@ -55,25 +68,31 @@ export function PosBoard() {
         {/* Category column */}
         <section className="flex flex-col border-b border-baky-muted/50 p-3 sm:border-b-0 sm:border-r md:p-5 lg:p-6">
           <h2 className="text-base font-medium text-black md:text-xl lg:text-2xl">
-            Category ({categories.length})
+            Category ({enabledCategories.length})
           </h2>
 
           <ul className="mt-4 divide-y divide-baky-muted/30 md:mt-6">
-            {categories.map((c) => (
-              <li key={c.id}>
-                <button
-                  onClick={() => setActiveCat(c.id)}
-                  className={`flex w-full items-center justify-between px-2 py-3 text-left text-base text-black md:py-3.5 md:text-lg lg:py-4 lg:text-xl ${
-                    activeCat === c.id ? "bg-baky-card" : ""
-                  }`}
-                >
-                  <span>{c.name}</span>
-                  <span className="text-base font-semibold text-[#1177E5] md:text-lg">
-                    {activeCat === c.id ? "•" : ">"}
-                  </span>
-                </button>
+            {enabledCategories.length === 0 ? (
+              <li className="px-2 py-3 text-sm text-baky-muted">
+                No active categories. Enable some under Menu.
               </li>
-            ))}
+            ) : (
+              enabledCategories.map((c) => (
+                <li key={c.id}>
+                  <button
+                    onClick={() => setActiveCat(c.id)}
+                    className={`flex w-full items-center justify-between px-2 py-3 text-left text-base text-black md:py-3.5 md:text-lg lg:py-4 lg:text-xl ${
+                      activeCat === c.id ? "bg-baky-card" : ""
+                    }`}
+                  >
+                    <span>{c.name}</span>
+                    <span className="text-base font-semibold text-[#1177E5] md:text-lg">
+                      {activeCat === c.id ? "•" : ">"}
+                    </span>
+                  </button>
+                </li>
+              ))
+            )}
           </ul>
         </section>
 

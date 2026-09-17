@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Bell, User, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useStore, type OrderLine } from "@/lib/store";
@@ -8,13 +8,25 @@ type DrawerStage = "closed" | "menu" | "summary";
 export function PosMobile() {
   const { categories, items, orders, placeOrder } = useStore();
   const [stage, setStage] = useState<DrawerStage>("closed");
-  const [activeCat, setActiveCat] = useState<string>(categories[0]?.id ?? "");
+  const enabledCategories = categories.filter((c) => c.enabled);
+  const [activeCat, setActiveCat] = useState<string>(enabledCategories[0]?.id ?? "");
   const [cart, setCart] = useState<Record<string, OrderLine>>({});
 
   const dragStartY = useRef<number | null>(null);
 
+  useEffect(() => {
+    if (enabledCategories.length > 0 && !enabledCategories.some((c) => c.id === activeCat)) {
+      setActiveCat(enabledCategories[0].id);
+    } else if (enabledCategories.length === 0) {
+      setActiveCat("");
+    }
+  }, [categories, activeCat]);
+
   const visibleItems = items.filter(
-    (i) => i.enabled && (activeCat ? i.categoryId === activeCat : true),
+    (i) =>
+      i.enabled &&
+      enabledCategories.some((c) => c.id === i.categoryId) &&
+      (activeCat ? i.categoryId === activeCat : true),
   );
 
   const lines = Object.values(cart);
