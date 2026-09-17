@@ -101,6 +101,8 @@ type Store = {
     paymentMethod: PaymentMethod | string,
     paymentDetails?: string,
   ) => Promise<void>;
+  deleteOrder: (id: string) => Promise<void>;
+  clearAllOrders: () => Promise<void>;
   addStaff: (input: { name: string; phone: string; password: string }) => Promise<void>;
   updateStaff: (
     id: string,
@@ -158,41 +160,7 @@ const initialInventory: InventoryItem[] = [
   { id: "n3", name: "Dark Compound (Pack)", current: 1, max: 10 },
 ];
 
-const initialOrders: Order[] = [
-  {
-    id: "#0001",
-    lines: [
-      { name: "Hazelnut Waffle", price: 100, qty: 2 },
-      { name: "Choco Shake", price: 120, qty: 1 },
-    ],
-    total: 320,
-    status: "Served",
-  },
-  {
-    id: "#0002",
-    lines: [
-      { name: "Classic Waffle", price: 100, qty: 1 },
-      { name: "Hazelnut Waffle", price: 100, qty: 1 },
-    ],
-    total: 200,
-    status: "Served",
-  },
-  {
-    id: "#0003",
-    lines: [{ name: "Choco Shake", price: 120, qty: 2 }],
-    total: 240,
-    status: "Preparing",
-  },
-  {
-    id: "#0004",
-    lines: [
-      { name: "Hazelnut Waffle", price: 100, qty: 3 },
-      { name: "Classic Waffle", price: 100, qty: 2 },
-    ],
-    total: 500,
-    status: "New",
-  },
-];
+const initialOrders: Order[] = [];
 
 const LOCAL_CAT_KEY = "baky_categories_v1";
 const LOCAL_ITEM_KEY = "baky_items_v1";
@@ -252,7 +220,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     return null;
   });
-  const [orderNo, setOrderNo] = useState(5);
+  const [orderNo, setOrderNo] = useState(1);
   const [isSynced, setIsSynced] = useState(false);
 
   const generateId = (prefix: string) => {
@@ -327,18 +295,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             paymentMethod: o.payment_method || o.paymentMethod || undefined,
             paymentDetails: o.payment_details || o.paymentDetails || undefined,
           }));
+
+          // Calculate highest numerical order number across all orders
+          const maxNum = loadedOrders.reduce((max: number, o: any) => {
+            const num = parseInt(o.id.replace(/\D/g, ""), 10);
+            return isNaN(num) ? max : Math.max(max, num);
+          }, 0);
+          setOrderNo(maxNum + 1);
+
           setOrders(loadedOrders);
           setLocal(LOCAL_ORDER_KEY, loadedOrders);
-          setOrderNo(orderRes.data.length + 1);
         } else if (orderRes?.data && orderRes.data.length === 0) {
-          for (const ord of initialOrders) {
-            await supabase.from("orders").insert({
-              id: ord.id,
-              lines: ord.lines,
-              total: ord.total,
-              status: ord.status,
-            });
-          }
+          setOrders([]);
+          setOrderNo(1);
+          setLocal(LOCAL_ORDER_KEY, []);
         }
 
         if (staffRes?.data && staffRes.data.length > 0) {
@@ -370,6 +340,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     loadData();
 
+    // Re-sync on window focus / tab visibility change
+    const handleSync = () => {
+      loadData();
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("focus", handleSync);
+      window.addEventListener("visibilitychange", handleSync);
+    }
+
+    // Fast periodic polling for live multi-device synchronization
+    const pollInterval = setInterval(() => {
+      loadData();
+    }, 4000);
+
     // Setup Supabase Realtime channel for live syncing
     const channel = supabase
       .channel("public-db-changes")
@@ -380,6 +364,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mounted = false;
+      clearInterval(pollInterval);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("focus", handleSync);
+        window.removeEventListener("visibilitychange", handleSync);
+      }
       supabase.removeChannel(channel);
     };
   }, []);
@@ -628,17 +617,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       placeOrder: async (lines) => {
         const total = lines.reduce((s, l) => s + l.price * l.qty, 0);
-        const id = `#${String(orderNo).padStart(4, "0")}`;
+        
+        // Compute unique next order ID
+        const maxNum = orders.reduce((max, o) => {
+          const num = parseInt(o.id.replace(/\D/g, ""), 10);
+          return isNaN(num) ? max : Math.max(max, num);
+        }, 0);
+        const nextNum = Math.max(maxNum + 1, orderNo);
+        const id = `#${String(nextNum).padStart(4, "0")}`;
         const newOrder: Order = { id, lines, total, status: "New" };
-        setOrderNo((n) => n + 1);
-        setOrders((prev) => [newOrder, ...prev]);
+
+        setOrderNo(nextNum + 1);
+        setOrders((prev) => {
+          const next = [newOrder, ...prev.filter((o) => o.id !== id)];
+          setLocal(LOCAL_ORDER_KEY, next);
+          return next;
+        });
+
         if (supabase && isSupabaseConfigured) {
-          await supabase.from("orders").insert({
+          const { error } = await supabase.from("orders").insert({
             id: newOrder.id,
             lines: newOrder.lines,
             total: newOrder.total,
             status: newOrder.status,
           });
+          if (error) {
+            console.error("Supabase insert order error:", error);
+            toast.error(`Database error placing order: ${error.message}`);
+          }
         }
       },
       advanceOrder: async (id) => {
@@ -659,11 +665,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           setLocal(LOCAL_ORDER_KEY, next);
           return next;
         });
+
         if (supabase && isSupabaseConfigured) {
-          await supabase
+          const { error } = await supabase
             .from("orders")
             .update({ status: nextStatus })
             .eq("id", id);
+          if (error) {
+            console.error("Supabase advance order error:", error);
+          }
         }
       },
       closeOrder: async (id, paymentMethod, paymentDetails) => {
@@ -682,21 +692,51 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
 
         if (supabase && isSupabaseConfigured) {
-          try {
-            await supabase
-              .from("orders")
-              .update({
-                status: "Past Orders",
-                payment_method: paymentMethod,
-                payment_details: paymentDetails || null,
-              })
-              .eq("id", id);
-          } catch (e) {
-            console.warn("Failed updating payment method in Supabase:", e);
-            await supabase.from("orders").update({ status: "Past Orders" }).eq("id", id);
+          const { error } = await supabase
+            .from("orders")
+            .update({
+              status: "Past Orders",
+              payment_method: paymentMethod,
+              payment_details: paymentDetails || null,
+            })
+            .eq("id", id);
+          if (error) {
+            console.error("Supabase close order error:", error);
           }
         }
         toast.success(`Order ${id} closed (${paymentMethod})`);
+      },
+      deleteOrder: async (id: string) => {
+        setOrders((prev) => {
+          const next = prev.filter((o) => o.id !== id);
+          setLocal(LOCAL_ORDER_KEY, next);
+          return next;
+        });
+
+        if (supabase && isSupabaseConfigured) {
+          const { error } = await supabase.from("orders").delete().eq("id", id);
+          if (error) {
+            console.error("Supabase delete order error:", error);
+            toast.error(`Database error deleting order: ${error.message}`);
+            return;
+          }
+        }
+        toast.success(`Order ${id} deleted`);
+      },
+      clearAllOrders: async () => {
+        setOrders([]);
+        setOrderNo(1);
+        setLocal(LOCAL_ORDER_KEY, []);
+
+        if (supabase && isSupabaseConfigured) {
+          const { error } = await supabase.from("orders").delete().neq("id", "");
+          if (error) {
+            console.error("Supabase clear orders error:", error);
+            toast.error(`Database error clearing orders: ${error.message}`);
+            return;
+          }
+        }
+        toast.success("All orders cleared successfully");
       },
       addStaff: async (input) => {
         const name = input.name.trim();

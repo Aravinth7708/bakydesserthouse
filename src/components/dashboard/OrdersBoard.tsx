@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useStore, type OrderStatus, type Order } from "@/lib/store";
 import { CloseOrderModal } from "./CloseOrderModal";
+import { Trash2 } from "lucide-react";
 
 const tabs: OrderStatus[] = ["New", "Preparing", "Served", "Past Orders"];
 
@@ -12,9 +13,10 @@ const nextLabel: Record<OrderStatus, string> = {
 };
 
 export function OrdersBoard() {
-  const { orders, advanceOrder } = useStore();
+  const { orders, advanceOrder, deleteOrder, clearAllOrders, currentUser } = useStore();
   const [active, setActive] = useState<OrderStatus>("New");
   const [closingOrder, setClosingOrder] = useState<Order | null>(null);
+  const [isClearing, setIsClearing] = useState(false);
 
   const visible = orders.filter((o) => o.status === active);
 
@@ -81,43 +83,77 @@ export function OrdersBoard() {
     }
   };
 
+  const handleClearAll = async () => {
+    if (window.confirm("Are you sure you want to clear ALL orders? This will delete all active and past orders.")) {
+      setIsClearing(true);
+      try {
+        await clearAllOrders();
+      } finally {
+        setIsClearing(false);
+      }
+    }
+  };
+
+  const handleDeleteSingle = async (e: React.MouseEvent, orderId: string) => {
+    e.stopPropagation();
+    if (window.confirm(`Delete order ${orderId}?`)) {
+      await deleteOrder(orderId);
+    }
+  };
+
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3 lg:gap-6">
-      {/* Tabs */}
+      {/* Tabs & Controls */}
       <div className="rounded-[15px] bg-baky-surface p-2 lg:p-[10px]">
-        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 md:gap-2 lg:gap-2">
-          {tabs.map((tab) => {
-            const count = orders.filter((o) => o.status === tab).length;
-            return (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="grid flex-1 grid-cols-2 gap-1.5 sm:grid-cols-4 md:gap-2 lg:gap-2">
+            {tabs.map((tab) => {
+              const count = orders.filter((o) => o.status === tab).length;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActive(tab)}
+                  className={`flex h-10 items-center justify-center rounded-[29px] px-2 text-xs font-semibold transition-colors sm:text-sm md:h-12 md:px-3 md:text-base lg:h-16 lg:px-3 lg:text-2xl ${
+                    active === tab
+                      ? "bg-baky-card text-black shadow-sm"
+                      : "text-black hover:bg-baky-card/50"
+                  }`}
+                >
+                  {tab}
+                  {count > 0 && (
+                    <span className="ml-1 text-xs font-bold text-[#1177E5] md:text-sm lg:ml-2 lg:text-lg">
+                      ({count})
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {orders.length > 0 && (
+            <div className="flex justify-end px-1 sm:px-2">
               <button
-                key={tab}
-                onClick={() => setActive(tab)}
-                className={`flex h-10 items-center justify-center rounded-[29px] px-2 text-xs font-semibold transition-colors sm:text-sm md:h-12 md:px-3 md:text-base lg:h-16 lg:px-3 lg:text-2xl ${
-                  active === tab
-                    ? "bg-baky-card text-black shadow-sm"
-                    : "text-black hover:bg-baky-card/50"
-                }`}
+                onClick={handleClearAll}
+                disabled={isClearing}
+                className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50/80 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
+                title="Wipe all orders from database and store"
               >
-                {tab}
-                {count > 0 && (
-                  <span className="ml-1 text-xs font-bold text-[#1177E5] md:text-sm lg:ml-2 lg:text-lg">
-                    ({count})
-                  </span>
-                )}
+                <Trash2 className="h-3.5 w-3.5" />
+                {isClearing ? "Clearing..." : "Clear All Orders"}
               </button>
-            );
-          })}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Table / List Container */}
       <div className="rounded-[15px] bg-baky-surface p-3 md:p-5 lg:p-6">
         <div className="min-w-0">
-          <div className="grid grid-cols-4 gap-2 border-b border-baky-muted/60 px-1 pb-2 text.xs text-baky-muted font-semibold md:gap-3 md:pb-3 md:text-sm lg:gap-4 lg:px-2 lg:pb-3 lg:text-[17px]">
+          <div className="grid grid-cols-4 gap-2 border-b border-baky-muted/60 px-1 pb-2 text-xs text-baky-muted font-semibold md:gap-3 md:pb-3 md:text-sm lg:gap-4 lg:px-2 lg:pb-3 lg:text-[17px]">
             <span>Order #</span>
             <span>Products</span>
             <span>Amount</span>
-            <span>{active === "Past Orders" ? "Payment" : "Action"}</span>
+            <span className="text-right sm:text-left">{active === "Past Orders" ? "Payment" : "Action"}</span>
           </div>
 
           {visible.length === 0 ? (
@@ -136,7 +172,7 @@ export function OrdersBoard() {
                     {o.lines.map((l) => `${l.name} ×${l.qty}`).join(", ")}
                   </span>
                   <span className="font-bold text-gray-900">₹{o.total}</span>
-                  <div className="min-w-0">
+                  <div className="flex items-center justify-end sm:justify-start gap-2 min-w-0">
                     {o.status === "Past Orders" ? (
                       renderPaymentBadge(o)
                     ) : (
@@ -151,6 +187,13 @@ export function OrdersBoard() {
                         {nextLabel[o.status]}
                       </button>
                     )}
+                    <button
+                      onClick={(e) => handleDeleteSingle(e, o.id)}
+                      className="p-1 text-gray-400 hover:text-red-500 rounded transition-colors"
+                      title={`Delete order ${o.id}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                    </button>
                   </div>
                 </li>
               ))}
