@@ -1,6 +1,7 @@
 -- ==============================================================================
 -- Baky Dessert House — Supabase Database Schema
 -- Run this script in your Supabase project's SQL Editor (SQL Editor -> New query)
+-- Safely re-runnable at any time without errors.
 -- ==============================================================================
 
 -- 1. Categories Table
@@ -58,6 +59,13 @@ alter table public.inventory enable row level security;
 alter table public.orders enable row level security;
 alter table public.staff enable row level security;
 
+-- Drop existing policies if they exist before recreating (prevents 42710 error)
+drop policy if exists "Allow all operations on categories" on public.categories;
+drop policy if exists "Allow all operations on menu_items" on public.menu_items;
+drop policy if exists "Allow all operations on inventory" on public.inventory;
+drop policy if exists "Allow all operations on orders" on public.orders;
+drop policy if exists "Allow all operations on staff" on public.staff;
+
 -- Create Open Access Policies for Baky Internal Management
 create policy "Allow all operations on categories" on public.categories for all using (true) with check (true);
 create policy "Allow all operations on menu_items" on public.menu_items for all using (true) with check (true);
@@ -65,12 +73,25 @@ create policy "Allow all operations on inventory" on public.inventory for all us
 create policy "Allow all operations on orders" on public.orders for all using (true) with check (true);
 create policy "Allow all operations on staff" on public.staff for all using (true) with check (true);
 
--- Optional: Enable Realtime for live order, inventory and staff updates
-alter publication supabase_realtime add table public.categories;
-alter publication supabase_realtime add table public.menu_items;
-alter publication supabase_realtime add table public.inventory;
-alter publication supabase_realtime add table public.orders;
-alter publication supabase_realtime add table public.staff;
+-- Safely add tables to Supabase Realtime publication if not already added
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'categories') then
+    alter publication supabase_realtime add table public.categories;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'menu_items') then
+    alter publication supabase_realtime add table public.menu_items;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'inventory') then
+    alter publication supabase_realtime add table public.inventory;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'orders') then
+    alter publication supabase_realtime add table public.orders;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'staff') then
+    alter publication supabase_realtime add table public.staff;
+  end if;
+end $$;
 
 -- Seed initial data if tables are empty
 insert into public.categories (id, name, enabled)
@@ -93,4 +114,9 @@ values
   ('n1', 'Waffle Flour (kg)', 2, 10),
   ('n2', 'Brownie Plates (Pack)', 7, 10),
   ('n3', 'Dark Compound (Pack)', 1, 10)
+on conflict (id) do nothing;
+
+insert into public.staff (id, name, phone, password)
+values
+  ('s1', 'Staff 1', '9876543210', '1234')
 on conflict (id) do nothing;

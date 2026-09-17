@@ -7,6 +7,7 @@ import { StatCards } from "@/components/dashboard/StatCards";
 import { RecentOrdersCard } from "@/components/dashboard/RecentOrdersCard";
 import { LowInventoryCard } from "@/components/dashboard/LowInventoryCard";
 import { StaffRestrictedView } from "@/components/dashboard/StaffRestrictedView";
+import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/")({
@@ -17,7 +18,8 @@ function Index() {
   const { currentUser } = useStore();
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-white font-sans text-black">
+    <AuthGuard>
+      <div className="flex h-full w-full overflow-hidden bg-white font-sans text-black">
       <Sidebar />
 
       <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
@@ -56,5 +58,6 @@ function Index() {
         </main>
       </div>
     </div>
+    </AuthGuard>
   );
 }

@@ -100,7 +100,7 @@ export function ManageBoard() {
                 </div>
                 <button
                   onClick={handleOpenAdd}
-                  className="flex items-center gap-1.5 rounded-xl bg-[#1177E5] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-600 transition-all active:scale-95 shrink-0"
+                  className="flex items-center gap-1.5 rounded-xl bg-[#1177E5] px-3.5 py-2 text-xs font-bold text-white hover:bg-blue-600 transition-all active:scale-95 shrink-0"
                 >
                   <Plus className="h-4 w-4" /> Add Staff
                 </button>
@@ -118,7 +118,7 @@ export function ManageBoard() {
                   {staff.map((s) => (
                     <div
                       key={s.id}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-baky-muted/30 bg-white p-3.5 shadow-sm transition-all hover:border-[#1177E5]/40"
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-3.5 transition-all hover:border-[#1177E5]/50"
                     >
                       <div className="min-w-0 space-y-1">
                         <div className="flex items-center gap-2">
@@ -187,7 +187,7 @@ export function ManageBoard() {
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-baky-muted/30 bg-white p-4 shadow-sm space-y-2">
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-gray-900 text-base">Baky Dessert House (Main Outlet)</h4>
                   <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
@@ -211,8 +211,8 @@ export function ManageBoard() {
 
       {/* Delete Confirmation Modal */}
       {deletingStaff && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 border border-gray-200">
             <h3 className="text-base font-bold text-gray-900">Remove Staff Member?</h3>
             <p className="mt-1 text-xs text-gray-600">
               Are you sure you want to remove <strong>{deletingStaff.name}</strong> ({deletingStaff.phone})? They will lose access to POS and Orders.
@@ -226,7 +226,7 @@ export function ManageBoard() {
               </button>
               <button
                 onClick={handleDeleteConfirm}
-                className="rounded-xl bg-rose-600 px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-rose-700"
+                className="rounded-xl bg-rose-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-rose-700"
               >
                 Delete Staff
               </button>

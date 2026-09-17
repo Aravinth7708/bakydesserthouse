@@ -12,7 +12,7 @@ import {
   UserCheck,
   ShieldCheck,
 } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { SwitchUserModal } from "./SwitchUserModal";
@@ -32,6 +32,7 @@ export function Sidebar() {
   const [open, setOpen] = useState(false);
   const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
   const { currentUser, logout } = useStore();
+  const navigate = useNavigate();
 
   const isStaff = currentUser?.role === "Staff";
   const visibleLinkItems = allLinkItems.filter(
@@ -90,32 +91,6 @@ export function Sidebar() {
           </button>
         </div>
 
-        {/* Active Role Badge */}
-        <div className="mt-4 px-2">
-          <button
-            onClick={() => setIsSwitchModalOpen(true)}
-            className={`flex w-full items-center justify-between gap-2 rounded-xl p-2.5 text-xs font-bold transition-all ${isStaff
-                ? "bg-blue-100/80 text-blue-900 border border-blue-200 hover:bg-blue-200/80"
-                : "bg-emerald-100/80 text-emerald-900 border border-emerald-200 hover:bg-emerald-200/80"
-              }`}
-          >
-            <div className="flex items-center gap-2 truncate">
-              {isStaff ? (
-                <>
-                  <UserCheck className="h-4 w-4 shrink-0 text-blue-700" />
-                  <span className="truncate">Staff: {currentUser.staffMember?.name || "Staff"}</span>
-                </>
-              ) : (
-                <>
-                  <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-700" />
-                  <span>Admin Mode</span>
-                </>
-              )}
-            </div>
-            <span className="text-[10px] underline shrink-0 font-semibold">Switch</span>
-          </button>
-        </div>
-
         {/* Nav */}
         <nav className="mt-6 flex flex-col gap-2 lg:mt-8">
           {visibleLinkItems.map(({ label, icon: Icon, to, exact }) => (
@@ -163,7 +138,10 @@ export function Sidebar() {
             Switch User
           </button>
           <button
-            onClick={() => logout()}
+            onClick={() => {
+              logout();
+              navigate({ to: "/login" });
+            }}
             className="flex w-full items-center gap-4 rounded-[13px] px-4 py-3 text-left text-lg font-medium text-black hover:bg-baky-card/60 lg:text-xl"
           >
             <LogOut className="h-6 w-6 shrink-0 lg:h-7 lg:w-7" strokeWidth={1.75} />

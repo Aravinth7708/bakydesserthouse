@@ -9,7 +9,7 @@ interface SwitchUserModalProps {
 }
 
 export function SwitchUserModal({ isOpen, onClose }: SwitchUserModalProps) {
-  const { currentUser, staff, loginAsStaff, switchToAdmin } = useStore();
+  const { currentUser, staff, loginAsStaff, switchToAdmin, logout } = useStore();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<"StaffLogin" | "AdminLogin">(
@@ -21,10 +21,10 @@ export function SwitchUserModal({ isOpen, onClose }: SwitchUserModalProps) {
 
   if (!isOpen) return null;
 
-  const handleStaffLogin = (e: React.FormEvent) => {
+  const handleStaffLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!phone || !password) return;
-    const success = loginAsStaff(phone, password);
+    const success = await loginAsStaff(phone, password);
     if (success) {
       setPhone("");
       setPassword("");
@@ -43,9 +43,15 @@ export function SwitchUserModal({ isOpen, onClose }: SwitchUserModalProps) {
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    onClose();
+    navigate({ to: "/login" });
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-3 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl sm:p-6 my-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-3 sm:p-4">
+      <div className="relative w-full max-w-md rounded-2xl bg-white p-5 border border-gray-200 sm:p-6 my-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
           <div className="flex items-center gap-2">
@@ -71,7 +77,7 @@ export function SwitchUserModal({ isOpen, onClose }: SwitchUserModalProps) {
             </span>
           ) : (
             <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 font-bold text-blue-800">
-              <User className="h-3.5 w-3.5" /> Staff: {currentUser.staffMember?.name}
+              <User className="h-3.5 w-3.5" /> Staff: {currentUser?.staffMember?.name || "Staff"}
             </span>
           )}
         </div>
@@ -83,7 +89,7 @@ export function SwitchUserModal({ isOpen, onClose }: SwitchUserModalProps) {
             onClick={() => setMode("StaffLogin")}
             className={`rounded-lg py-2 transition-all ${
               mode === "StaffLogin"
-                ? "bg-white text-gray-900 shadow-sm"
+                ? "bg-white text-gray-900 border border-gray-200"
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
@@ -94,7 +100,7 @@ export function SwitchUserModal({ isOpen, onClose }: SwitchUserModalProps) {
             onClick={() => setMode("AdminLogin")}
             className={`rounded-lg py-2 transition-all ${
               mode === "AdminLogin"
-                ? "bg-white text-gray-900 shadow-sm"
+                ? "bg-white text-gray-900 border border-gray-200"
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
@@ -166,7 +172,7 @@ export function SwitchUserModal({ isOpen, onClose }: SwitchUserModalProps) {
               </button>
               <button
                 type="submit"
-                className="rounded-xl bg-[#1177E5] px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-blue-600 transition-all"
+                className="rounded-xl bg-[#1177E5] px-5 py-2 text-xs font-bold text-white hover:bg-blue-600 transition-all"
               >
                 Login as Staff
               </button>
@@ -207,13 +213,25 @@ export function SwitchUserModal({ isOpen, onClose }: SwitchUserModalProps) {
               </button>
               <button
                 type="submit"
-                className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-emerald-700 transition-all"
+                className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition-all"
               >
                 Switch to Admin
               </button>
             </div>
           </form>
         )}
+
+        {/* Modal Logout Option */}
+        <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
+          <span className="text-xs text-gray-500">Finished your shift?</span>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline"
+          >
+            Log Out Completely
+          </button>
+        </div>
       </div>
     </div>
   );

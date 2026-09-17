@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { OrdersBoard } from "@/components/dashboard/OrdersBoard";
+import { AuthGuard } from "@/components/auth/AuthGuard";
 
 export const Route = createFileRoute("/orders")({
   head: () => ({
@@ -24,16 +25,18 @@ export const Route = createFileRoute("/orders")({
 
 function Orders() {
   return (
-    <div className="flex h-full w-full overflow-hidden bg-white font-sans text-black">
-      <Sidebar />
+    <AuthGuard>
+      <div className="flex h-full w-full overflow-hidden bg-white font-sans text-black">
+        <Sidebar />
 
-      <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
-        <Topbar title="Manage Orders" />
+        <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
+          <Topbar title="Manage Orders" />
 
-        <main className="flex flex-1 overflow-y-auto p-4 lg:p-6">
-          <OrdersBoard />
-        </main>
+          <main className="flex flex-1 overflow-y-auto p-4 lg:p-6">
+            <OrdersBoard />
+          </main>
+        </div>
       </div>
-    </div>
+    </AuthGuard>
   );
 }

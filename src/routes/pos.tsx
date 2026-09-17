@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { PosBoard } from "@/components/dashboard/PosBoard";
+import { AuthGuard } from "@/components/auth/AuthGuard";
 
 export const Route = createFileRoute("/pos")({
   head: () => ({
@@ -24,16 +25,18 @@ export const Route = createFileRoute("/pos")({
 
 function Pos() {
   return (
-    <div className="flex h-full w-full overflow-hidden bg-white font-sans text-black">
-      <Sidebar />
+    <AuthGuard>
+      <div className="flex h-full w-full overflow-hidden bg-white font-sans text-black">
+        <Sidebar />
 
-      <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
-        <Topbar title="POS" />
+        <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
+          <Topbar title="POS" />
 
-        <main className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6">
-          <PosBoard />
-        </main>
+          <main className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6">
+            <PosBoard />
+          </main>
+        </div>
       </div>
-    </div>
+    </AuthGuard>
   );
 }

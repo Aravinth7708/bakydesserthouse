@@ -50,8 +50,8 @@ export function StaffModal({ isOpen, onClose, staffMember }: StaffModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-3 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl sm:p-6 my-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-3 sm:p-4">
+      <div className="relative w-full max-w-md rounded-2xl bg-white p-5 border border-gray-200 sm:p-6 my-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
           <div className="flex items-center gap-2">
@@ -151,7 +151,7 @@ export function StaffModal({ isOpen, onClose, staffMember }: StaffModalProps) {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="rounded-xl bg-[#1177E5] px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-blue-600 transition-all disabled:opacity-50"
+              className="rounded-xl bg-[#1177E5] px-5 py-2 text-xs font-bold text-white hover:bg-blue-600 transition-all disabled:opacity-50"
             >
               {isSubmitting ? "Saving..." : staffMember ? "Save Changes" : "Create Staff"}
             </button>

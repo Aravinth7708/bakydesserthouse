@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { MenuBoard } from "@/components/dashboard/MenuBoard";
 import { StaffRestrictedView } from "@/components/dashboard/StaffRestrictedView";
+import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/menu")({
@@ -28,20 +29,22 @@ function Menu() {
   const { currentUser } = useStore();
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-white font-sans text-black">
-      <Sidebar />
+    <AuthGuard>
+      <div className="flex h-full w-full overflow-hidden bg-white font-sans text-black">
+        <Sidebar />
 
-      <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
-        <Topbar title="Manage Menu" />
+        <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
+          <Topbar title="Manage Menu" />
 
-        <main className="flex flex-1 overflow-y-auto p-4 lg:p-6">
-          {currentUser?.role === "Staff" ? (
-            <StaffRestrictedView pageName="Manage Menu" />
-          ) : (
-            <MenuBoard />
-          )}
-        </main>
+          <main className="flex flex-1 overflow-y-auto p-4 lg:p-6">
+            {currentUser?.role === "Staff" ? (
+              <StaffRestrictedView pageName="Manage Menu" />
+            ) : (
+              <MenuBoard />
+            )}
+          </main>
+        </div>
       </div>
-    </div>
+    </AuthGuard>
   );
 }

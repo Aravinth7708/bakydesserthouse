@@ -60,6 +60,7 @@ export type UserRole = "Admin" | "Staff";
 export type CurrentUser = {
   role: UserRole;
   staffMember?: StaffMember;
+  isAuthenticated: boolean;
 };
 
 type Store = {
@@ -68,7 +69,7 @@ type Store = {
   inventory: InventoryItem[];
   orders: Order[];
   staff: StaffMember[];
-  currentUser: CurrentUser;
+  currentUser: CurrentUser | null;
   isSynced: boolean;
   addCategory: (name: string) => Promise<void>;
   updateCategory: (id: string, name: string) => Promise<void>;
@@ -106,7 +107,8 @@ type Store = {
     input: { name: string; phone: string; password: string },
   ) => Promise<void>;
   deleteStaff: (id: string) => Promise<void>;
-  loginAsStaff: (phone: string, pass: string) => boolean;
+  loginAsStaff: (phone: string, pass: string) => Promise<boolean>;
+  loginAsAdmin: (pass: string) => boolean;
   switchToAdmin: (pass: string) => boolean;
   logout: () => void;
 };
@@ -243,12 +245,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [staff, setStaff] = useState<StaffMember[]>(() =>
     getLocal(LOCAL_STAFF_KEY, initialStaff),
   );
-  const [currentUser, setCurrentUser] = useState<CurrentUser>(() => {
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(() => {
     const saved = getLocal<any>(LOCAL_USER_KEY, null);
-    if (saved && typeof saved === "object" && (saved.role === "Admin" || saved.role === "Staff")) {
+    if (saved && typeof saved === "object" && (saved.role === "Admin" || saved.role === "Staff") && saved.isAuthenticated) {
       return saved as CurrentUser;
     }
-    return { role: "Admin" };
+    return null;
   });
   const [orderNo, setOrderNo] = useState(5);
   const [isSynced, setIsSynced] = useState(false);
@@ -266,16 +268,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     async function loadData() {
       try {
-        const [catRes, itemRes, invRes, orderRes] = await Promise.all([
+        const results = await Promise.allSettled([
           supabase.from("categories").select("*").order("created_at", { ascending: true }),
           supabase.from("menu_items").select("*").order("created_at", { ascending: true }),
           supabase.from("inventory").select("*").order("created_at", { ascending: true }),
           supabase.from("orders").select("*").order("created_at", { ascending: false }),
+          supabase.from("staff").select("*").order("created_at", { ascending: true }),
         ]);
 
         if (!mounted) return;
 
-        if (catRes.data && catRes.data.length > 0) {
+        const catRes = results[0].status === "fulfilled" ? results[0].value : null;
+        const itemRes = results[1].status === "fulfilled" ? results[1].value : null;
+        const invRes = results[2].status === "fulfilled" ? results[2].value : null;
+        const orderRes = results[3].status === "fulfilled" ? results[3].value : null;
+        const staffRes = results[4].status === "fulfilled" ? results[4].value : null;
+
+        if (catRes?.data && catRes.data.length > 0) {
           const loadedCats = catRes.data.map((c: any) => ({
             id: c.id,
             name: c.name,
@@ -285,7 +294,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           setLocal(LOCAL_CAT_KEY, loadedCats);
         }
 
-        if (itemRes.data && itemRes.data.length > 0) {
+        if (itemRes?.data && itemRes.data.length > 0) {
           const loadedItems = itemRes.data.map((i: any) => ({
             id: i.id,
             name: i.name,
@@ -298,7 +307,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           setLocal(LOCAL_ITEM_KEY, loadedItems);
         }
 
-        if (invRes.data && invRes.data.length > 0) {
+        if (invRes?.data && invRes.data.length > 0) {
           const loadedInv = invRes.data.map((n: any) => ({
             id: n.id,
             name: n.name,
@@ -309,7 +318,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           setLocal(LOCAL_INV_KEY, loadedInv);
         }
 
-        if (orderRes.data && orderRes.data.length > 0) {
+        if (orderRes?.data && orderRes.data.length > 0) {
           const loadedOrders = orderRes.data.map((o: any) => ({
             id: o.id,
             lines: o.lines || [],
@@ -321,13 +330,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           setOrders(loadedOrders);
           setLocal(LOCAL_ORDER_KEY, loadedOrders);
           setOrderNo(orderRes.data.length + 1);
-        } else if (orderRes.data && orderRes.data.length === 0) {
+        } else if (orderRes?.data && orderRes.data.length === 0) {
           for (const ord of initialOrders) {
             await supabase.from("orders").insert({
               id: ord.id,
               lines: ord.lines,
               total: ord.total,
               status: ord.status,
+            });
+          }
+        }
+
+        if (staffRes?.data && staffRes.data.length > 0) {
+          const loadedStaff = staffRes.data.map((s: any) => ({
+            id: s.id,
+            name: s.name,
+            phone: s.phone,
+            password: s.password,
+            createdAt: s.created_at,
+          }));
+          setStaff(loadedStaff);
+          setLocal(LOCAL_STAFF_KEY, loadedStaff);
+        } else if (staffRes?.data && staffRes.data.length === 0) {
+          for (const s of initialStaff) {
+            await supabase.from("staff").insert({
+              id: s.id,
+              name: s.name,
+              phone: s.phone,
+              password: s.password,
             });
           }
         }
@@ -692,18 +722,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
 
         if (supabase && isSupabaseConfigured) {
-          try {
-            await supabase.from("staff").insert({
-              id: newStaff.id,
-              name: newStaff.name,
-              phone: newStaff.phone,
-              password: newStaff.password,
-            });
-          } catch (e) {
-            console.warn("Supabase staff insert error:", e);
+          const { error } = await supabase.from("staff").insert({
+            id: newStaff.id,
+            name: newStaff.name,
+            phone: newStaff.phone,
+            password: newStaff.password,
+          });
+          if (error) {
+            console.error("Supabase staff insert error:", error);
+            toast.error(`Database error adding staff: ${error.message}`);
+            return;
           }
         }
-        toast.success(`Staff member "${name}" added successfully`);
+        toast.success(`Staff member "${name}" added and synced`);
       },
       updateStaff: async (id, input) => {
         const name = input.name.trim();
@@ -719,13 +750,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
 
         if (supabase && isSupabaseConfigured) {
-          try {
-            await supabase
-              .from("staff")
-              .update({ name, phone, password })
-              .eq("id", id);
-          } catch (e) {
-            console.warn("Supabase staff update error:", e);
+          const { error } = await supabase
+            .from("staff")
+            .update({ name, phone, password })
+            .eq("id", id);
+          if (error) {
+            console.error("Supabase staff update error:", error);
+            toast.error(`Database error updating staff: ${error.message}`);
+            return;
           }
         }
         toast.success("Staff details updated");
@@ -739,20 +771,58 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
 
         if (supabase && isSupabaseConfigured) {
-          try {
-            await supabase.from("staff").delete().eq("id", id);
-          } catch (e) {
-            console.warn("Supabase staff delete error:", e);
+          const { error } = await supabase.from("staff").delete().eq("id", id);
+          if (error) {
+            console.error("Supabase staff delete error:", error);
+            toast.error(`Database error removing staff: ${error.message}`);
+            return;
           }
         }
         toast.success(`Staff "${target?.name || ''}" removed`);
       },
-      loginAsStaff: (phone, pass) => {
-        const found = staff.find(
+      loginAsStaff: async (phone, pass) => {
+        let found = staff.find(
           (s) => s.phone.trim() === phone.trim() && s.password === pass.trim(),
         );
+
+        // Fallback: If not found in local memory, check live Supabase database directly
+        if (!found && supabase && isSupabaseConfigured) {
+          try {
+            const { data, error } = await supabase
+              .from("staff")
+              .select("*")
+              .eq("phone", phone.trim())
+              .eq("password", pass.trim())
+              .maybeSingle();
+
+            if (data && !error) {
+              found = {
+                id: data.id,
+                name: data.name,
+                phone: data.phone,
+                password: data.password,
+                createdAt: data.created_at,
+              };
+              setStaff((prev) => {
+                if (!prev.some((s) => s.id === found!.id)) {
+                  const next = [...prev, found!];
+                  setLocal(LOCAL_STAFF_KEY, next);
+                  return next;
+                }
+                return prev;
+              });
+            }
+          } catch (e) {
+            console.warn("Direct Supabase staff login lookup error:", e);
+          }
+        }
+
         if (found) {
-          const userState: CurrentUser = { role: "Staff", staffMember: found };
+          const userState: CurrentUser = {
+            role: "Staff",
+            staffMember: found,
+            isAuthenticated: true,
+          };
           setCurrentUser(userState);
           setLocal(LOCAL_USER_KEY, userState);
           toast.success(`Welcome ${found.name}! Access limited to POS & Orders.`);
@@ -761,9 +831,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         toast.error("Invalid Staff Phone Number or Password");
         return false;
       },
+      loginAsAdmin: (pass) => {
+        if (pass.trim() === "1234" || pass.trim() === "admin") {
+          const userState: CurrentUser = { role: "Admin", isAuthenticated: true };
+          setCurrentUser(userState);
+          setLocal(LOCAL_USER_KEY, userState);
+          toast.success("Welcome Admin! Full Dashboard access granted.");
+          return true;
+        }
+        toast.error("Incorrect Admin Password (default is 1234)");
+        return false;
+      },
       switchToAdmin: (pass) => {
         if (pass.trim() === "1234" || pass.trim() === "admin") {
-          const userState: CurrentUser = { role: "Admin" };
+          const userState: CurrentUser = { role: "Admin", isAuthenticated: true };
           setCurrentUser(userState);
           setLocal(LOCAL_USER_KEY, userState);
           toast.success("Switched to Admin Mode (Full Access)");
@@ -773,10 +854,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return false;
       },
       logout: () => {
-        const userState: CurrentUser = { role: "Admin" };
-        setCurrentUser(userState);
-        setLocal(LOCAL_USER_KEY, userState);
-        toast.info("Logged out to Admin Mode");
+        setCurrentUser(null);
+        if (typeof window !== "undefined") {
+          localStorage.removeItem(LOCAL_USER_KEY);
+        }
+        toast.info("Logged out successfully");
       },
     }),
     [categories, items, inventory, orders, staff, currentUser, orderNo, isSynced],

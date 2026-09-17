@@ -165,6 +165,10 @@
     body {
       zoom: 0.8;
     }
+
+    .login-page-wrapper {
+      zoom: 1.25;
+    }
   }
 }
 
