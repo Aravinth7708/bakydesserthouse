@@ -59,11 +59,10 @@ export function Sidebar() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[280px] shrink-0 flex-col bg-baky-surface px-4 py-8 transition-all duration-300 lg:static lg:z-auto lg:h-full lg:w-[321px] lg:overflow-y-auto lg:translate-x-0 ${
-          open
+        className={`fixed inset-y-0 left-0 z-50 flex w-[280px] shrink-0 flex-col bg-baky-surface px-4 py-8 transition-all duration-300 lg:static lg:z-auto lg:h-full lg:w-[321px] lg:overflow-y-auto lg:translate-x-0 ${open
             ? "translate-x-0 opacity-100 visible pointer-events-auto"
             : "-translate-x-full opacity-0 invisible pointer-events-none"
-        } lg:opacity-100 lg:visible lg:pointer-events-auto`}
+          } lg:opacity-100 lg:visible lg:pointer-events-auto`}
       >
         {/* Brand + close */}
         <div className="flex items-center justify-between gap-3 px-2">
@@ -95,17 +94,16 @@ export function Sidebar() {
         <div className="mt-4 px-2">
           <button
             onClick={() => setIsSwitchModalOpen(true)}
-            className={`flex w-full items-center justify-between gap-2 rounded-xl p-2.5 text-xs font-bold transition-all ${
-              isStaff
+            className={`flex w-full items-center justify-between gap-2 rounded-xl p-2.5 text-xs font-bold transition-all ${isStaff
                 ? "bg-blue-100/80 text-blue-900 border border-blue-200 hover:bg-blue-200/80"
                 : "bg-emerald-100/80 text-emerald-900 border border-emerald-200 hover:bg-emerald-200/80"
-            }`}
+              }`}
           >
             <div className="flex items-center gap-2 truncate">
               {isStaff ? (
                 <>
                   <UserCheck className="h-4 w-4 shrink-0 text-blue-700" />
-                  <span className="truncate">Staff: {currentUser?.staffMember?.name || "Staff"}</span>
+                  <span className="truncate">Staff: {currentUser.staffMember?.name || "Staff"}</span>
                 </>
               ) : (
                 <>

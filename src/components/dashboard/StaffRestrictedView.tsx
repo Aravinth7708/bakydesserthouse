@@ -20,7 +20,7 @@ export function StaffRestrictedView({ pageName }: { pageName: string }) {
         </h3>
 
         <p className="text-sm text-gray-600 leading-relaxed">
-          Hello <strong>{currentUser?.staffMember?.name || "Staff Member"}</strong>! Staff accounts are configured to access only <strong>POS</strong> and <strong>Orders</strong>.
+          Hello <strong>{currentUser.staffMember?.name || "Staff Member"}</strong>! Staff accounts are configured to access only <strong>POS</strong> and <strong>Orders</strong>.
         </p>
 
         <div className="pt-2 flex flex-col gap-2">

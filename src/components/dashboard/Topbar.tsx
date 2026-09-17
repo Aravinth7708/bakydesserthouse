@@ -20,17 +20,16 @@ export function Topbar({ title = "Dashboard" }: { title?: string }) {
           {/* Active Role Pill */}
           <button
             onClick={() => setIsSwitchModalOpen(true)}
-            className={`flex h-9 items-center gap-1.5 rounded-[10px] px-3 text-xs font-bold transition-all sm:text-sm lg:h-10 lg:rounded-xl ${
-              isStaff
+            className={`flex h-9 items-center gap-1.5 rounded-[10px] px-3 text-xs font-bold transition-all sm:text-sm lg:h-10 lg:rounded-xl ${isStaff
                 ? "bg-blue-100 text-blue-900 border border-blue-200 hover:bg-blue-200"
                 : "bg-emerald-100 text-emerald-900 border border-emerald-200 hover:bg-emerald-200"
-            }`}
+              }`}
           >
             {isStaff ? (
               <>
                 <UserCheck className="h-4 w-4 text-blue-700 shrink-0" />
                 <span className="truncate max-w-[120px] sm:max-w-none">
-                  Staff: {currentUser?.staffMember?.name || "Staff"}
+                  Staff: {currentUser.staffMember?.name || "Staff"}
                 </span>
               </>
             ) : (
@@ -56,7 +55,7 @@ export function Topbar({ title = "Dashboard" }: { title?: string }) {
             title="Switch User / Access"
             className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1177E5] text-white font-bold text-xs shadow-sm hover:opacity-90 transition-opacity lg:h-10 lg:w-10 lg:text-sm"
           >
-            {isStaff ? currentUser?.staffMember?.name?.charAt(0)?.toUpperCase() || "S" : "A"}
+            {isStaff ? currentUser.staffMember?.name.charAt(0).toUpperCase() || "S" : "A"}
           </button>
         </div>
       </header>
