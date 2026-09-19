@@ -4,6 +4,7 @@ import {
   ShoppingCart,
   UtensilsCrossed,
   FileCheck,
+  Receipt,
   Store,
   Info,
   LogOut,
@@ -23,6 +24,7 @@ const allLinkItems = [
   { label: "Orders", icon: ShoppingCart, to: "/orders", exact: false, adminOnly: false },
   { label: "Menu", icon: UtensilsCrossed, to: "/menu", exact: false, adminOnly: true },
   { label: "Inventory", icon: FileCheck, to: "/inventory", exact: false, adminOnly: true },
+  { label: "Expenses", icon: Receipt, to: "/expenses", exact: false, adminOnly: true },
   { label: "Manage", icon: Store, to: "/manage", exact: false, adminOnly: true },
 ] as const;
 

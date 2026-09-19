@@ -57,6 +57,25 @@ export type StaffMember = {
 
 export type UserRole = "Admin" | "Staff";
 
+export type ExpenseCategory =
+  | "Fuel"
+  | "Stock / Ingredients"
+  | "Water & Utilities"
+  | "Maintenance & Repair"
+  | "Salary"
+  | "Other";
+
+export type Expense = {
+  id: string;
+  title: string;
+  category: ExpenseCategory;
+  amount: number;
+  paymentMethod?: string;
+  notes?: string;
+  date: string;
+  createdAt?: string;
+};
+
 export type CurrentUser = {
   role: UserRole;
   staffMember?: StaffMember;
@@ -68,6 +87,7 @@ type Store = {
   items: MenuItem[];
   inventory: InventoryItem[];
   orders: Order[];
+  expenses: Expense[];
   staff: StaffMember[];
   currentUser: CurrentUser | null;
   isSynced: boolean;
@@ -109,6 +129,15 @@ type Store = {
     input: { name: string; phone: string; password: string },
   ) => Promise<void>;
   deleteStaff: (id: string) => Promise<void>;
+  addExpense: (input: {
+    title: string;
+    category: ExpenseCategory;
+    amount: number;
+    paymentMethod?: string;
+    notes?: string;
+    date?: string;
+  }) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
   loginAsStaff: (phone: string, pass: string) => Promise<boolean>;
   loginAsAdmin: (pass: string) => boolean;
   switchToAdmin: (pass: string) => boolean;
@@ -162,10 +191,41 @@ const initialInventory: InventoryItem[] = [
 
 const initialOrders: Order[] = [];
 
+const initialExpenses: Expense[] = [
+  {
+    id: "e1",
+    title: "Fuel for delivery vehicle",
+    category: "Fuel",
+    amount: 500,
+    paymentMethod: "Cash",
+    date: new Date().toISOString().split("T")[0],
+    notes: "Petrol refill for delivery scooter",
+  },
+  {
+    id: "e2",
+    title: "Chocolate blocks & Cocoa powder stock",
+    category: "Stock / Ingredients",
+    amount: 2500,
+    paymentMethod: "GPay",
+    date: new Date().toISOString().split("T")[0],
+    notes: "5kg dark chocolate slabs & cocoa powder",
+  },
+  {
+    id: "e3",
+    title: "20L Drinking Water Cans (10 Units)",
+    category: "Water & Utilities",
+    amount: 350,
+    paymentMethod: "Cash",
+    date: new Date().toISOString().split("T")[0],
+    notes: "Purified drinking water for shop",
+  },
+];
+
 const LOCAL_CAT_KEY = "baky_categories_v1";
 const LOCAL_ITEM_KEY = "baky_items_v1";
 const LOCAL_INV_KEY = "baky_inventory_v1";
 const LOCAL_ORDER_KEY = "baky_orders_v1";
+const LOCAL_EXPENSE_KEY = "baky_expenses_v1";
 const LOCAL_STAFF_KEY = "baky_staff_v1";
 const LOCAL_USER_KEY = "baky_user_v1";
 
@@ -202,6 +262,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<MenuItem[]>(initialItems);
   const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory);
   const [orders, setOrders] = useState<Order[]>(initialOrders);
+  const [expenses, setExpenses] = useState<Expense[]>(initialExpenses);
   const [staff, setStaff] = useState<StaffMember[]>(initialStaff);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [orderNo, setOrderNo] = useState(1);
@@ -220,6 +281,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const savedItem = getLocal(LOCAL_ITEM_KEY, initialItems);
     const savedInv = getLocal(LOCAL_INV_KEY, initialInventory);
     const savedOrders = getLocal(LOCAL_ORDER_KEY, initialOrders);
+    const savedExpenses = getLocal(LOCAL_EXPENSE_KEY, initialExpenses);
     const savedStaff = getLocal(LOCAL_STAFF_KEY, initialStaff);
     const savedUser = getLocal<any>(LOCAL_USER_KEY, null);
 
@@ -227,6 +289,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setItems(savedItem);
     setInventory(savedInv);
     setOrders(savedOrders);
+    setExpenses(savedExpenses);
     setStaff(savedStaff);
 
     if (savedUser && typeof savedUser === "object" && (savedUser.role === "Admin" || savedUser.role === "Staff") && savedUser.isAuthenticated) {
@@ -257,6 +320,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           supabase.from("inventory").select("*").order("created_at", { ascending: true }),
           supabase.from("orders").select("*").order("created_at", { ascending: false }),
           supabase.from("staff").select("*").order("created_at", { ascending: true }),
+          supabase.from("expenses").select("*").order("date", { ascending: false }),
         ]);
 
         if (!mounted) return;
@@ -266,6 +330,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const invRes = results[2].status === "fulfilled" ? results[2].value : null;
         const orderRes = results[3].status === "fulfilled" ? results[3].value : null;
         const staffRes = results[4].status === "fulfilled" ? results[4].value : null;
+        const expRes = results[5].status === "fulfilled" ? results[5].value : null;
 
         if (catRes?.data && catRes.data.length > 0) {
           const loadedCats = catRes.data.map((c: any) => ({
@@ -367,6 +432,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
         }
 
+        if (expRes?.data && expRes.data.length > 0) {
+          const loadedExp = expRes.data.map((e: any) => ({
+            id: e.id,
+            title: e.title,
+            category: e.category as ExpenseCategory,
+            amount: Number(e.amount),
+            paymentMethod: e.payment_method || undefined,
+            notes: e.notes || undefined,
+            date: e.date,
+            createdAt: e.created_at,
+          }));
+          setExpenses(loadedExp);
+          setLocal(LOCAL_EXPENSE_KEY, loadedExp);
+        }
+
         setIsSynced(true);
       } catch (err) {
         console.error("Failed to load data from Supabase:", err);
@@ -414,6 +494,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       items,
       inventory,
       orders,
+      expenses,
       staff,
       currentUser,
       isSynced,
@@ -848,6 +929,59 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
         }
         toast.success("Staff details updated");
+      },
+      addExpense: async (input) => {
+        const newExp: Expense = {
+          id: generateId("exp"),
+          title: input.title.trim(),
+          category: input.category,
+          amount: input.amount,
+          paymentMethod: input.paymentMethod || "Cash",
+          notes: input.notes?.trim() || "",
+          date: input.date || new Date().toISOString().split("T")[0],
+        };
+
+        setExpenses((prev) => {
+          const next = [newExp, ...prev];
+          setLocal(LOCAL_EXPENSE_KEY, next);
+          return next;
+        });
+
+        if (supabase && isSupabaseConfigured) {
+          const { error } = await supabase.from("expenses").insert({
+            id: newExp.id,
+            title: newExp.title,
+            category: newExp.category,
+            amount: newExp.amount,
+            payment_method: newExp.paymentMethod,
+            notes: newExp.notes,
+            date: newExp.date,
+          });
+          if (error) {
+            console.error("Supabase insert expense error:", error);
+            toast.error(`Database error adding expense: ${error.message}`);
+            return;
+          }
+        }
+        toast.success(`Expense "${newExp.title}" recorded`);
+      },
+      deleteExpense: async (id: string) => {
+        const target = expenses.find((e) => e.id === id);
+        setExpenses((prev) => {
+          const next = prev.filter((e) => e.id !== id);
+          setLocal(LOCAL_EXPENSE_KEY, next);
+          return next;
+        });
+
+        if (supabase && isSupabaseConfigured) {
+          const { error } = await supabase.from("expenses").delete().eq("id", id);
+          if (error) {
+            console.error("Supabase delete expense error:", error);
+            toast.error(`Database error deleting expense: ${error.message}`);
+            return;
+          }
+        }
+        toast.success(`Expense "${target?.title || ''}" deleted`);
       },
       deleteStaff: async (id) => {
         const target = staff.find((s) => s.id === id);

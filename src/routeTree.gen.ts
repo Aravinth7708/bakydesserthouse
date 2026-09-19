@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ExpensesRouteImport } from './routes/expenses'
 import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ManageRouteImport } from './routes/manage'
@@ -20,6 +21,11 @@ import { Route as PosRouteImport } from './routes/pos'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExpensesRoute = ExpensesRouteImport.update({
+  id: '/expenses',
+  path: '/expenses',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InventoryRoute = InventoryRouteImport.update({
@@ -55,6 +61,7 @@ const PosRoute = PosRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRoute
   '/login': typeof LoginRoute
   '/manage': typeof ManageRoute
@@ -64,6 +71,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRoute
   '/login': typeof LoginRoute
   '/manage': typeof ManageRoute
@@ -74,6 +82,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRoute
   '/login': typeof LoginRoute
   '/manage': typeof ManageRoute
@@ -84,12 +93,28 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/inventory' | '/login' | '/manage' | '/menu' | '/orders' | '/pos'
+    | '/'
+    | '/expenses'
+    | '/inventory'
+    | '/login'
+    | '/manage'
+    | '/menu'
+    | '/orders'
+    | '/pos'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/inventory' | '/login' | '/manage' | '/menu' | '/orders' | '/pos'
+  to:
+    | '/'
+    | '/expenses'
+    | '/inventory'
+    | '/login'
+    | '/manage'
+    | '/menu'
+    | '/orders'
+    | '/pos'
   id:
     | '__root__'
     | '/'
+    | '/expenses'
     | '/inventory'
     | '/login'
     | '/manage'
@@ -100,6 +125,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ExpensesRoute: typeof ExpensesRoute
   InventoryRoute: typeof InventoryRoute
   LoginRoute: typeof LoginRoute
   ManageRoute: typeof ManageRoute
@@ -115,6 +141,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expenses': {
+      id: '/expenses'
+      path: '/expenses'
+      fullPath: '/expenses'
+      preLoaderRoute: typeof ExpensesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inventory': {
@@ -164,6 +197,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ExpensesRoute: ExpensesRoute,
   InventoryRoute: InventoryRoute,
   LoginRoute: LoginRoute,
   ManageRoute: ManageRoute,

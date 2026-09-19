@@ -58,12 +58,25 @@ create table if not exists public.staff (
   created_at timestamptz not null default now()
 );
 
+-- 6. Expenses Table
+create table if not exists public.expenses (
+  id text primary key default gen_random_uuid()::text,
+  title text not null,
+  category text not null check (category in ('Fuel', 'Stock / Ingredients', 'Water & Utilities', 'Maintenance & Repair', 'Salary', 'Other')),
+  amount numeric not null default 0,
+  payment_method text default 'Cash',
+  notes text,
+  date date not null default current_date,
+  created_at timestamptz not null default now()
+);
+
 -- Enable Row Level Security (RLS)
 alter table public.categories enable row level security;
 alter table public.menu_items enable row level security;
 alter table public.inventory enable row level security;
 alter table public.orders enable row level security;
 alter table public.staff enable row level security;
+alter table public.expenses enable row level security;
 
 -- Drop existing policies if they exist before recreating (prevents 42710 error)
 drop policy if exists "Allow all operations on categories" on public.categories;
@@ -71,6 +84,7 @@ drop policy if exists "Allow all operations on menu_items" on public.menu_items;
 drop policy if exists "Allow all operations on inventory" on public.inventory;
 drop policy if exists "Allow all operations on orders" on public.orders;
 drop policy if exists "Allow all operations on staff" on public.staff;
+drop policy if exists "Allow all operations on expenses" on public.expenses;
 
 -- Create Open Access Policies for Baky Internal Management
 create policy "Allow all operations on categories" on public.categories for all using (true) with check (true);
@@ -78,6 +92,7 @@ create policy "Allow all operations on menu_items" on public.menu_items for all 
 create policy "Allow all operations on inventory" on public.inventory for all using (true) with check (true);
 create policy "Allow all operations on orders" on public.orders for all using (true) with check (true);
 create policy "Allow all operations on staff" on public.staff for all using (true) with check (true);
+create policy "Allow all operations on expenses" on public.expenses for all using (true) with check (true);
 
 -- Safely add tables to Supabase Realtime publication if not already added
 do $$
@@ -96,6 +111,9 @@ begin
   end if;
   if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'staff') then
     alter publication supabase_realtime add table public.staff;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'expenses') then
+    alter publication supabase_realtime add table public.expenses;
   end if;
 end $$;
 

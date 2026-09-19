@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useStore, type OrderStatus, type Order } from "@/lib/store";
 import { CloseOrderModal } from "./CloseOrderModal";
-import { Trash2 } from "lucide-react";
+import { OrderDetailsModal } from "./OrderDetailsModal";
+import { Trash2, Info } from "lucide-react";
 
 const tabs: OrderStatus[] = ["New", "Preparing", "Served", "Past Orders"];
 
@@ -16,6 +17,7 @@ export function OrdersBoard() {
   const { orders, advanceOrder, deleteOrder, clearAllOrders, currentUser } = useStore();
   const [active, setActive] = useState<OrderStatus>("New");
   const [closingOrder, setClosingOrder] = useState<Order | null>(null);
+  const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
   const [isClearing, setIsClearing] = useState(false);
 
   const visible = orders.filter((o) => o.status === active);
@@ -167,8 +169,22 @@ export function OrdersBoard() {
                   key={o.id}
                   className="grid grid-cols-4 items-center gap-2 px-1 py-3 text-xs font-medium text-black md:gap-3 md:py-4 md:text-base lg:gap-4 lg:px-2 lg:py-5 lg:text-xl"
                 >
-                  <span className="truncate font-semibold text-gray-900">{o.id}</span>
-                  <span className="truncate text-baky-muted" title={o.lines.map((l) => `${l.name} ×${l.qty}`).join(", ")}>
+                  <div className="flex items-center gap-1.5 min-w-0 pr-1">
+                    <span className="truncate font-semibold text-gray-900">{o.id}</span>
+                    <button
+                      type="button"
+                      onClick={() => setViewingOrder(o)}
+                      className="p-1 text-gray-400 hover:text-[#1177E5] rounded-full hover:bg-blue-50 transition-colors shrink-0"
+                      title={`View details for order ${o.id}`}
+                    >
+                      <Info className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                    </button>
+                  </div>
+                  <span
+                    className="truncate text-baky-muted cursor-pointer hover:text-gray-900 transition-colors"
+                    title={o.lines.map((l) => `${l.name} ×${l.qty}`).join(", ")}
+                    onClick={() => setViewingOrder(o)}
+                  >
                     {o.lines.map((l) => `${l.name} ×${l.qty}`).join(", ")}
                   </span>
                   <span className="font-bold text-gray-900">₹{o.total}</span>
@@ -206,6 +222,12 @@ export function OrdersBoard() {
       <CloseOrderModal
         order={closingOrder}
         onClose={() => setClosingOrder(null)}
+      />
+
+      {/* Full Order Details Modal */}
+      <OrderDetailsModal
+        order={viewingOrder}
+        onClose={() => setViewingOrder(null)}
       />
     </div>
   );
