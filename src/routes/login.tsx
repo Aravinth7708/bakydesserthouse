@@ -90,9 +90,9 @@ function LoginPage() {
           <img
             src="/baky-logo.png"
             alt="Baky Logo"
-            className="h-10 w-10 rounded-full object-cover border border-gray-200"
+            className="h-11 w-11 shrink-0 object-contain"
           />
-          <div className="leading-tight">
+          <div className="flex flex-col justify-center leading-tight">
             <h1 className="text-base font-bold text-gray-900 sm:text-lg">
               Baky Dessert House
             </h1>
@@ -113,14 +113,12 @@ function LoginPage() {
       <main className="flex flex-1 items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="w-full max-w-[460px] rounded-2xl border border-gray-200 bg-white p-7 sm:p-9 my-auto">
           {/* Header Icon & Title */}
-          <div className="text-center">
-            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 border border-gray-200">
-              {mode === "Admin" ? (
-                <ShieldCheck className="h-7 w-7 text-gray-900" />
-              ) : (
-                <UserCheck className="h-7 w-7 text-[#1177E5]" />
-              )}
-            </div>
+          <div className="flex flex-col items-center text-center">
+            <img
+              src="/baky-logo.png"
+              alt="Baky Logo"
+              className="mb-2 h-20 w-20 shrink-0 object-contain"
+            />
             <h2 className="text-2xl font-bold text-gray-900">
               Sign In to Baky
             </h2>
@@ -129,30 +127,38 @@ function LoginPage() {
             </p>
 
             {/* Role Tabs */}
-            <div className="mt-5 grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1 text-xs font-bold sm:text-sm">
+            <div className="mt-5 grid grid-cols-2 gap-1 rounded-xl bg-gray-100/90 p-1 text-xs font-bold sm:text-sm border border-gray-200/80 w-full">
               <button
                 type="button"
                 onClick={() => setMode("Admin")}
-                className={`flex items-center justify-center gap-2 rounded-lg py-2.5 transition-all ${
+                className={`flex items-center justify-center gap-2 rounded-lg py-2.5 sm:py-3 transition-colors ${
                   mode === "Admin"
-                    ? "bg-white text-gray-900 border border-gray-200"
-                    : "text-gray-500 hover:text-gray-900"
+                    ? "bg-white text-gray-900 border border-gray-200/80 font-extrabold"
+                    : "text-gray-500 hover:text-gray-900 font-semibold hover:bg-white/50"
                 }`}
               >
-                <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                Admin
+                <ShieldCheck
+                  className={`h-4 w-4 shrink-0 transition-colors ${
+                    mode === "Admin" ? "text-[#1177E5]" : "text-gray-400"
+                  }`}
+                />
+                <span>Admin</span>
               </button>
               <button
                 type="button"
                 onClick={() => setMode("Staff")}
-                className={`flex items-center justify-center gap-2 rounded-lg py-2.5 transition-all ${
+                className={`flex items-center justify-center gap-2 rounded-lg py-2.5 sm:py-3 transition-colors ${
                   mode === "Staff"
-                    ? "bg-white text-gray-900 border border-gray-200"
-                    : "text-gray-500 hover:text-gray-900"
+                    ? "bg-white text-gray-900 border border-gray-200/80 font-extrabold"
+                    : "text-gray-500 hover:text-gray-900 font-semibold hover:bg-white/50"
                 }`}
               >
-                <UserCheck className="h-4 w-4 text-[#1177E5]" />
-                Staff
+                <UserCheck
+                  className={`h-4 w-4 shrink-0 transition-colors ${
+                    mode === "Staff" ? "text-[#1177E5]" : "text-gray-400"
+                  }`}
+                />
+                <span>Staff</span>
               </button>
             </div>
           </div>

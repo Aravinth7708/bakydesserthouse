@@ -43,6 +43,12 @@ create table if not exists public.orders (
   created_at timestamptz not null default now()
 );
 
+-- Ensure existing orders table has columns & constraint updated if pre-existing
+alter table public.orders add column if not exists payment_method text;
+alter table public.orders add column if not exists payment_details text;
+alter table public.orders drop constraint if exists orders_status_check;
+alter table public.orders add constraint orders_status_check check (status in ('New', 'Preparing', 'Served', 'Past Orders'));
+
 -- 5. Staff Table
 create table if not exists public.staff (
   id text primary key default gen_random_uuid()::text,

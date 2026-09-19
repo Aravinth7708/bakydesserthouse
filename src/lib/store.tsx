@@ -306,7 +306,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             id: o.id,
             lines: o.lines || [],
             total: Number(o.total),
-            status: o.status,
+            status: o.status as OrderStatus,
             paymentMethod: o.payment_method || o.paymentMethod || undefined,
             paymentDetails: o.payment_details || o.paymentDetails || undefined,
           }));
@@ -314,7 +314,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           setOrders((prevLocal) => {
             const loadedIds = new Set(loadedOrders.map((o: any) => o.id));
             const unsyncedLocal = prevLocal.filter((o) => !loadedIds.has(o.id));
-            const combined = [...loadedOrders, ...unsyncedLocal];
+
+            const statusFlow: OrderStatus[] = ["New", "Preparing", "Served", "Past Orders"];
+            const mergedOrders = loadedOrders.map((remoteOrder: any) => {
+              const localOrder = prevLocal.find((l) => l.id === remoteOrder.id);
+              if (localOrder) {
+                const remoteIdx = statusFlow.indexOf(remoteOrder.status as OrderStatus);
+                const localIdx = statusFlow.indexOf(localOrder.status as OrderStatus);
+                if (localIdx > remoteIdx) {
+                  return {
+                    ...remoteOrder,
+                    status: localOrder.status,
+                    paymentMethod: localOrder.paymentMethod || remoteOrder.paymentMethod,
+                    paymentDetails: localOrder.paymentDetails || remoteOrder.paymentDetails,
+                  };
+                }
+              }
+              return remoteOrder;
+            });
+
+            const combined = [...mergedOrders, ...unsyncedLocal];
 
             const maxNum = combined.reduce((max: number, o: any) => {
               const num = parseInt(o.id.replace(/\D/g, ""), 10);
@@ -719,8 +738,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               payment_details: paymentDetails || null,
             })
             .eq("id", id);
+
           if (error) {
-            console.error("Supabase close order error:", error);
+            console.warn("Supabase close order error with payment fields, trying fallback to status only:", error);
+            const fallback = await supabase
+              .from("orders")
+              .update({ status: "Past Orders" })
+              .eq("id", id);
+            
+            if (fallback.error) {
+              console.error("Supabase close order fallback failed:", fallback.error);
+            }
           }
         }
         toast.success(`Order ${id} closed (${paymentMethod})`);

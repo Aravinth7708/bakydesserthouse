@@ -71,7 +71,7 @@ export function Sidebar() {
             <img
               src="/baky-logo.png"
               alt="Baky Logo"
-              className="h-12 w-12 shrink-0 rounded-full object-cover"
+              className="h-12 w-12 shrink-0 object-contain"
             />
             <div className="min-w-0 leading-tight">
               <p className="truncate text-xl font-medium text-black lg:text-2xl">
