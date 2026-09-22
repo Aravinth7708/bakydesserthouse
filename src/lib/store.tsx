@@ -157,9 +157,10 @@ const initialCategories: Category[] = [
 ];
 
 const initialItems: MenuItem[] = [
+  // Waffle Category (c1)
   {
     id: "i1",
-    name: "Hazelnut Waffle",
+    name: "Butterscotch Waffle",
     price: 100,
     categoryId: "c1",
     variants: ["Belgian", "Brownie", "Redvelvet"],
@@ -174,7 +175,81 @@ const initialItems: MenuItem[] = [
     enabled: true,
   },
   {
+    id: "i3",
+    name: "Cookie & Cream Waffle",
+    price: 100,
+    categoryId: "c1",
+    variants: ["Belgian", "Brownie", "Redvelvet"],
+    enabled: true,
+  },
+  {
     id: "i4",
+    name: "Dark Choco Waffle",
+    price: 100,
+    categoryId: "c1",
+    variants: ["Belgian", "Brownie", "Redvelvet"],
+    enabled: true,
+  },
+  {
+    id: "i5",
+    name: "Dark White Waffle",
+    price: 100,
+    categoryId: "c1",
+    variants: ["Belgian", "Brownie", "Redvelvet"],
+    enabled: true,
+  },
+  {
+    id: "i6",
+    name: "Death By Choco Waffle",
+    price: 100,
+    categoryId: "c1",
+    variants: ["Belgian", "Brownie", "Redvelvet"],
+    enabled: true,
+  },
+  {
+    id: "i7",
+    name: "Hazelnut Waffle",
+    price: 100,
+    categoryId: "c1",
+    variants: ["Belgian", "Brownie", "Redvelvet"],
+    enabled: true,
+  },
+  {
+    id: "i8",
+    name: "Milk Choco Waffle",
+    price: 100,
+    categoryId: "c1",
+    variants: ["Belgian", "Brownie", "Redvelvet"],
+    enabled: true,
+  },
+  {
+    id: "i9",
+    name: "Triple Chocolate Waffle",
+    price: 100,
+    categoryId: "c1",
+    variants: ["Belgian", "Brownie", "Redvelvet"],
+    enabled: true,
+  },
+  {
+    id: "i10",
+    name: "Red Velvet Waffle",
+    price: 100,
+    categoryId: "c1",
+    variants: ["Belgian", "Brownie", "Redvelvet"],
+    enabled: true,
+  },
+
+  // Shakes Category (c2)
+  {
+    id: "i11",
+    name: "Choco Shake",
+    price: 120,
+    categoryId: "c2",
+    variants: [],
+    enabled: true,
+  },
+  {
+    id: "i12",
     name: "Black Currant",
     price: 80,
     categoryId: "c2",
@@ -182,7 +257,7 @@ const initialItems: MenuItem[] = [
     enabled: true,
   },
   {
-    id: "i5",
+    id: "i13",
     name: "Blue Berry",
     price: 80,
     categoryId: "c2",
@@ -190,18 +265,46 @@ const initialItems: MenuItem[] = [
     enabled: true,
   },
   {
-    id: "i6",
+    id: "i14",
     name: "Chocolate",
     price: 80,
     categoryId: "c2",
     variants: [],
     enabled: true,
   },
+
+  // Signature Category (c3)
   {
-    id: "i3",
-    name: "Choco Shake",
-    price: 120,
-    categoryId: "c2",
+    id: "i15",
+    name: "Baky Special Waffle",
+    price: 150,
+    categoryId: "c3",
+    variants: [],
+    enabled: true,
+  },
+  {
+    id: "i16",
+    name: "Loaded Brownie Sundae",
+    price: 160,
+    categoryId: "c3",
+    variants: [],
+    enabled: true,
+  },
+
+  // Brownie Category (c4)
+  {
+    id: "i17",
+    name: "Classic Brownie",
+    price: 90,
+    categoryId: "c4",
+    variants: [],
+    enabled: true,
+  },
+  {
+    id: "i18",
+    name: "Sizzling Brownie",
+    price: 140,
+    categoryId: "c4",
     variants: [],
     enabled: true,
   },
@@ -402,7 +505,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
 
         if (itemRes?.data && itemRes.data.length > 0) {
-          const loadedItems = itemRes.data.map((i: any) => ({
+          const loadedItems: MenuItem[] = itemRes.data.map((i: any) => ({
             id: i.id,
             name: i.name,
             price: Number(i.price),
@@ -410,8 +513,50 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             variants: i.variants || [],
             enabled: i.enabled,
           }));
+
+          // Merge initial default items if missing from Supabase database
+          initialItems.forEach((initItem) => {
+            if (!loadedItems.some((i) => i.id === initItem.id || i.name.toLowerCase() === initItem.name.toLowerCase())) {
+              loadedItems.push(initItem);
+              if (supabase && isSupabaseConfigured) {
+                supabase.from("menu_items").upsert({
+                  id: initItem.id,
+                  name: initItem.name,
+                  price: initItem.price,
+                  category_id: initItem.categoryId,
+                  variants: initItem.variants,
+                  enabled: initItem.enabled,
+                }).then();
+              }
+            }
+          });
+
           setItems(loadedItems);
           setLocal(LOCAL_ITEM_KEY, loadedItems);
+        } else {
+          setItems((prev) => {
+            const base = prev.length > 0 ? prev : initialItems;
+            const merged = [...base];
+            initialItems.forEach((initItem) => {
+              if (!merged.some((i) => i.id === initItem.id || i.name.toLowerCase() === initItem.name.toLowerCase())) {
+                merged.push(initItem);
+              }
+            });
+            if (supabase && isSupabaseConfigured) {
+              merged.forEach((item) => {
+                supabase.from("menu_items").upsert({
+                  id: item.id,
+                  name: item.name,
+                  price: item.price,
+                  category_id: item.categoryId,
+                  variants: item.variants,
+                  enabled: item.enabled,
+                }).then();
+              });
+            }
+            setLocal(LOCAL_ITEM_KEY, merged);
+            return merged;
+          });
         }
 
         if (invRes?.data && invRes.data.length > 0) {

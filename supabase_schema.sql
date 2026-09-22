@@ -128,12 +128,24 @@ on conflict (id) do nothing;
 
 insert into public.menu_items (id, name, price, category_id, variants, enabled)
 values
-  ('i1', 'Hazelnut Waffle', 100, 'c1', array['Belgian', 'Brownie', 'Redvelvet'], true),
+  ('i1', 'Butterscotch Waffle', 100, 'c1', array['Belgian', 'Brownie', 'Redvelvet'], true),
   ('i2', 'Classic Waffle', 100, 'c1', array['Belgian', 'Brownie', 'Redvelvet'], true),
-  ('i4', 'Black Currant', 80, 'c2', array[]::text[], true),
-  ('i5', 'Blue Berry', 80, 'c2', array[]::text[], true),
-  ('i6', 'Chocolate', 80, 'c2', array[]::text[], true),
-  ('i3', 'Choco Shake', 120, 'c2', array[]::text[], true)
+  ('i3', 'Cookie & Cream Waffle', 100, 'c1', array['Belgian', 'Brownie', 'Redvelvet'], true),
+  ('i4', 'Dark Choco Waffle', 100, 'c1', array['Belgian', 'Brownie', 'Redvelvet'], true),
+  ('i5', 'Dark White Waffle', 100, 'c1', array['Belgian', 'Brownie', 'Redvelvet'], true),
+  ('i6', 'Death By Choco Waffle', 100, 'c1', array['Belgian', 'Brownie', 'Redvelvet'], true),
+  ('i7', 'Hazelnut Waffle', 100, 'c1', array['Belgian', 'Brownie', 'Redvelvet'], true),
+  ('i8', 'Milk Choco Waffle', 100, 'c1', array['Belgian', 'Brownie', 'Redvelvet'], true),
+  ('i9', 'Triple Chocolate Waffle', 100, 'c1', array['Belgian', 'Brownie', 'Redvelvet'], true),
+  ('i10', 'Red Velvet Waffle', 100, 'c1', array['Belgian', 'Brownie', 'Redvelvet'], true),
+  ('i11', 'Choco Shake', 120, 'c2', array[]::text[], true),
+  ('i12', 'Black Currant', 80, 'c2', array[]::text[], true),
+  ('i13', 'Blue Berry', 80, 'c2', array[]::text[], true),
+  ('i14', 'Chocolate', 80, 'c2', array[]::text[], true),
+  ('i15', 'Baky Special Waffle', 150, 'c3', array[]::text[], true),
+  ('i16', 'Loaded Brownie Sundae', 160, 'c3', array[]::text[], true),
+  ('i17', 'Classic Brownie', 90, 'c4', array[]::text[], true),
+  ('i18', 'Sizzling Brownie', 140, 'c4', array[]::text[], true)
 on conflict (id) do nothing;
 
 insert into public.inventory (id, name, current, max)
