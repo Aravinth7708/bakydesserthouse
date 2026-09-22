@@ -63,9 +63,9 @@ export function PosBoard() {
   };
 
   return (
-    <div className="flex flex-1 flex-col rounded-[15px] bg-baky-surface w-full max-w-full overflow-hidden shadow-sm">
-      {/* Mobile: Horizontal Category Pills */}
-      <div className="flex flex-col border-b border-baky-muted/30 p-3 sm:hidden">
+    <div className="flex flex-1 flex-col rounded-[15px] bg-baky-surface w-full max-w-full overflow-visible sm:overflow-hidden">
+      {/* Mobile: Sticky Horizontal Category Pills */}
+      <div className="sticky top-0 z-20 flex flex-col border-b border-baky-muted/30 p-3 bg-baky-surface sm:hidden">
         <div className="flex items-center justify-between pb-2">
           <span className="text-xs font-semibold text-baky-muted uppercase tracking-wider">
             Categories ({enabledCategories.length})
@@ -222,42 +222,44 @@ export function PosBoard() {
             )}
           </ul>
 
-          {/* Cart Breakdown */}
-          {lines.length > 0 && (
-            <div className="mt-4 space-y-1.5 border-t border-baky-muted/40 pt-3 md:mt-6 md:pt-4">
-              <div className="flex items-center justify-between text-xs font-medium text-baky-muted">
-                <span>Cart Items</span>
-                <span>{lines.reduce((s, l) => s + l.qty, 0)} qty</span>
+          {/* Cart Breakdown & Checkout (Sticky at Bottom on Mobile) */}
+          <div className="sticky bottom-0 z-20 bg-baky-surface pt-3 pb-1 border-t border-baky-muted/30 sm:static sm:bg-transparent sm:p-0 sm:border-0">
+            {lines.length > 0 && (
+              <div className="space-y-1.5 border-t border-baky-muted/40 pt-2 pb-2 md:mt-6 md:pt-4">
+                <div className="flex items-center justify-between text-xs font-medium text-baky-muted">
+                  <span>Cart Items</span>
+                  <span>{lines.reduce((s, l) => s + l.qty, 0)} qty</span>
+                </div>
+                <div className="max-h-24 sm:max-h-32 overflow-y-auto divide-y divide-baky-muted/20">
+                  {lines.map((l) => (
+                    <div
+                      key={l.name}
+                      className="flex justify-between py-1 text-xs text-black sm:text-sm md:text-base"
+                    >
+                      <span className="truncate pr-2">
+                        {l.name} × {l.qty}
+                      </span>
+                      <span className="shrink-0 font-medium">₹{l.price * l.qty}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="max-h-32 overflow-y-auto divide-y divide-baky-muted/20">
-                {lines.map((l) => (
-                  <div
-                    key={l.name}
-                    className="flex justify-between py-1 text-xs text-black sm:text-sm md:text-base"
-                  >
-                    <span className="truncate pr-2">
-                      {l.name} × {l.qty}
-                    </span>
-                    <span className="shrink-0 font-medium">₹{l.price * l.qty}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+            )}
 
-          {/* Checkout Button */}
-          <div className="mt-4 pt-2 md:mt-6">
-            <button
-              onClick={handleCheckout}
-              disabled={lines.length === 0}
-              className={`flex h-[48px] w-full items-center justify-center rounded-[12px] text-base font-medium text-white transition-all sm:h-[54px] md:h-[62px] md:text-xl lg:h-[70px] lg:text-2xl ${
-                lines.length > 0
-                  ? "bg-[#3395FF] shadow hover:bg-[#2a86ea] active:scale-[0.99]"
-                  : "bg-gray-300 cursor-not-allowed opacity-60"
-              }`}
-            >
-              {total > 0 ? `Place Order · ₹${total}` : "Select items to order"}
-            </button>
+            {/* Checkout Button */}
+            <div className="pt-2 md:mt-6">
+              <button
+                onClick={handleCheckout}
+                disabled={lines.length === 0}
+                className={`flex h-[48px] w-full items-center justify-center rounded-[12px] text-base font-medium text-white transition-all sm:h-[54px] md:h-[62px] md:text-xl lg:h-[70px] lg:text-2xl ${
+                  lines.length > 0
+                    ? "bg-[#3395FF] shadow hover:bg-[#2a86ea] active:scale-[0.99]"
+                    : "bg-gray-300 cursor-not-allowed opacity-60"
+                }`}
+              >
+                {total > 0 ? `Place Order · ₹${total}` : "Select items to order"}
+              </button>
+            </div>
           </div>
         </section>
       </div>

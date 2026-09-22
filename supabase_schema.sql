@@ -130,6 +130,9 @@ insert into public.menu_items (id, name, price, category_id, variants, enabled)
 values
   ('i1', 'Hazelnut Waffle', 100, 'c1', array['Belgian', 'Brownie', 'Redvelvet'], true),
   ('i2', 'Classic Waffle', 100, 'c1', array['Belgian', 'Brownie', 'Redvelvet'], true),
+  ('i4', 'Black Currant', 80, 'c2', array[]::text[], true),
+  ('i5', 'Blue Berry', 80, 'c2', array[]::text[], true),
+  ('i6', 'Chocolate', 80, 'c2', array[]::text[], true),
   ('i3', 'Choco Shake', 120, 'c2', array[]::text[], true)
 on conflict (id) do nothing;
 

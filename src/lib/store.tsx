@@ -174,6 +174,30 @@ const initialItems: MenuItem[] = [
     enabled: true,
   },
   {
+    id: "i4",
+    name: "Black Currant",
+    price: 80,
+    categoryId: "c2",
+    variants: [],
+    enabled: true,
+  },
+  {
+    id: "i5",
+    name: "Blue Berry",
+    price: 80,
+    categoryId: "c2",
+    variants: [],
+    enabled: true,
+  },
+  {
+    id: "i6",
+    name: "Chocolate",
+    price: 80,
+    categoryId: "c2",
+    variants: [],
+    enabled: true,
+  },
+  {
     id: "i3",
     name: "Choco Shake",
     price: 120,
@@ -242,7 +266,12 @@ function getLocal<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
   try {
     const item = localStorage.getItem(key);
-    return item ? JSON.parse(item) : fallback;
+    if (!item) return fallback;
+    const parsed = JSON.parse(item);
+    if (Array.isArray(parsed) && parsed.length === 0 && Array.isArray(fallback) && fallback.length > 0) {
+      return fallback;
+    }
+    return parsed;
   } catch {
     return fallback;
   }
@@ -278,15 +307,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Restore state from localStorage after initial client hydration to prevent Hydration Mismatch
   useEffect(() => {
     const savedCat = getLocal(LOCAL_CAT_KEY, initialCategories);
+    const validCats = savedCat && savedCat.length > 0 ? savedCat : initialCategories;
+
     const savedItem = getLocal(LOCAL_ITEM_KEY, initialItems);
+    const validItems = savedItem && savedItem.length > 0 ? savedItem : initialItems;
+
     const savedInv = getLocal(LOCAL_INV_KEY, initialInventory);
     const savedOrders = getLocal(LOCAL_ORDER_KEY, initialOrders);
     const savedExpenses = getLocal(LOCAL_EXPENSE_KEY, initialExpenses);
     const savedStaff = getLocal(LOCAL_STAFF_KEY, initialStaff);
     const savedUser = getLocal<any>(LOCAL_USER_KEY, null);
 
-    setCategories(savedCat);
-    setItems(savedItem);
+    // Merge any missing initial default categories
+    const mergedCats = [...validCats];
+    initialCategories.forEach((initCat) => {
+      if (!mergedCats.some((c) => c.id === initCat.id || c.name.toLowerCase() === initCat.name.toLowerCase())) {
+        mergedCats.push(initCat);
+      }
+    });
+
+    // Merge any missing initial default items into saved items
+    const mergedItems = [...validItems];
+    initialItems.forEach((initItem) => {
+      if (!mergedItems.some((i) => i.id === initItem.id || i.name.toLowerCase() === initItem.name.toLowerCase())) {
+        mergedItems.push(initItem);
+      }
+    });
+
+    setCategories(mergedCats);
+    setLocal(LOCAL_CAT_KEY, mergedCats);
+    setItems(mergedItems);
+    setLocal(LOCAL_ITEM_KEY, mergedItems);
     setInventory(savedInv);
     setOrders(savedOrders);
     setExpenses(savedExpenses);
@@ -333,13 +384,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const expRes = results[5].status === "fulfilled" ? results[5].value : null;
 
         if (catRes?.data && catRes.data.length > 0) {
-          const loadedCats = catRes.data.map((c: any) => ({
+          const loadedCats: Category[] = catRes.data.map((c: any) => ({
             id: c.id,
             name: c.name,
             enabled: c.enabled,
           }));
+          initialCategories.forEach((ic) => {
+            if (!loadedCats.some((c: Category) => c.id === ic.id || c.name.toLowerCase() === ic.name.toLowerCase())) {
+              loadedCats.push(ic);
+            }
+          });
           setCategories(loadedCats);
           setLocal(LOCAL_CAT_KEY, loadedCats);
+        } else {
+          setCategories((prev) => (prev.length > 0 ? prev : initialCategories));
+          setLocal(LOCAL_CAT_KEY, initialCategories);
         }
 
         if (itemRes?.data && itemRes.data.length > 0) {
@@ -502,7 +561,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const trimmed = name.trim();
         if (!trimmed) return;
         const newCat: Category = { id: generateId("cat"), name: trimmed, enabled: true };
-        
+
         // Optimistically update state & local storage
         setCategories((prev) => {
           const next = [...prev, newCat];
@@ -634,12 +693,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const next = prev.map((i) =>
             i.id === id
               ? {
-                  ...i,
-                  name: trimmed,
-                  price: input.price,
-                  categoryId: input.categoryId,
-                  variants: input.variants,
-                }
+                ...i,
+                name: trimmed,
+                price: input.price,
+                categoryId: input.categoryId,
+                variants: input.variants,
+              }
               : i,
           );
           setLocal(LOCAL_ITEM_KEY, next);
@@ -733,7 +792,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       placeOrder: async (lines) => {
         const total = lines.reduce((s, l) => s + l.price * l.qty, 0);
-        
+
         // Compute unique next order ID
         const maxNum = orders.reduce((max, o) => {
           const num = parseInt(o.id.replace(/\D/g, ""), 10);
@@ -826,7 +885,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               .from("orders")
               .update({ status: "Past Orders" })
               .eq("id", id);
-            
+
             if (fallback.error) {
               console.error("Supabase close order fallback failed:", fallback.error);
             }

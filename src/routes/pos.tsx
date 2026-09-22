@@ -32,7 +32,7 @@ function Pos() {
         <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
           <Topbar title="POS" />
 
-          <main className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6">
+          <main className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6 min-h-0">
             <PosBoard />
           </main>
         </div>
