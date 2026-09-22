@@ -419,28 +419,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const savedOrders = getLocal(LOCAL_ORDER_KEY, initialOrders);
     const savedExpenses = getLocal(LOCAL_EXPENSE_KEY, initialExpenses);
     const savedStaff = getLocal(LOCAL_STAFF_KEY, initialStaff);
-    const savedUser = getLocal<any>(LOCAL_USER_KEY, null);
-
-    // Merge any missing initial default categories
-    const mergedCats = [...validCats];
-    initialCategories.forEach((initCat) => {
-      if (!mergedCats.some((c) => c.id === initCat.id || c.name.toLowerCase() === initCat.name.toLowerCase())) {
-        mergedCats.push(initCat);
-      }
-    });
-
-    // Merge any missing initial default items into saved items
-    const mergedItems = [...validItems];
-    initialItems.forEach((initItem) => {
-      if (!mergedItems.some((i) => i.id === initItem.id || i.name.toLowerCase() === initItem.name.toLowerCase())) {
-        mergedItems.push(initItem);
-      }
-    });
-
-    setCategories(mergedCats);
-    setLocal(LOCAL_CAT_KEY, mergedCats);
-    setItems(mergedItems);
-    setLocal(LOCAL_ITEM_KEY, mergedItems);
+    setCategories(validCats);
+    setItems(validItems);
     setInventory(savedInv);
     setOrders(savedOrders);
     setExpenses(savedExpenses);
@@ -492,15 +472,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             name: c.name,
             enabled: c.enabled,
           }));
-          initialCategories.forEach((ic) => {
-            if (!loadedCats.some((c: Category) => c.id === ic.id || c.name.toLowerCase() === ic.name.toLowerCase())) {
-              loadedCats.push(ic);
-            }
-          });
           setCategories(loadedCats);
           setLocal(LOCAL_CAT_KEY, loadedCats);
-        } else {
-          setCategories((prev) => (prev.length > 0 ? prev : initialCategories));
+        } else if (catRes?.data && catRes.data.length === 0) {
+          if (supabase && isSupabaseConfigured) {
+            for (const cat of initialCategories) {
+              await supabase.from("categories").upsert({
+                id: cat.id,
+                name: cat.name,
+                enabled: cat.enabled,
+              });
+            }
+          }
+          setCategories(initialCategories);
           setLocal(LOCAL_CAT_KEY, initialCategories);
         }
 
@@ -513,50 +497,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             variants: i.variants || [],
             enabled: i.enabled,
           }));
-
-          // Merge initial default items if missing from Supabase database
-          initialItems.forEach((initItem) => {
-            if (!loadedItems.some((i) => i.id === initItem.id || i.name.toLowerCase() === initItem.name.toLowerCase())) {
-              loadedItems.push(initItem);
-              if (supabase && isSupabaseConfigured) {
-                supabase.from("menu_items").upsert({
-                  id: initItem.id,
-                  name: initItem.name,
-                  price: initItem.price,
-                  category_id: initItem.categoryId,
-                  variants: initItem.variants,
-                  enabled: initItem.enabled,
-                }).then();
-              }
-            }
-          });
-
           setItems(loadedItems);
           setLocal(LOCAL_ITEM_KEY, loadedItems);
-        } else {
-          setItems((prev) => {
-            const base = prev.length > 0 ? prev : initialItems;
-            const merged = [...base];
-            initialItems.forEach((initItem) => {
-              if (!merged.some((i) => i.id === initItem.id || i.name.toLowerCase() === initItem.name.toLowerCase())) {
-                merged.push(initItem);
-              }
-            });
-            if (supabase && isSupabaseConfigured) {
-              merged.forEach((item) => {
-                supabase.from("menu_items").upsert({
-                  id: item.id,
-                  name: item.name,
-                  price: item.price,
-                  category_id: item.categoryId,
-                  variants: item.variants,
-                  enabled: item.enabled,
-                }).then();
+        } else if (itemRes?.data && itemRes.data.length === 0) {
+          if (supabase && isSupabaseConfigured) {
+            for (const item of initialItems) {
+              await supabase.from("menu_items").upsert({
+                id: item.id,
+                name: item.name,
+                price: item.price,
+                category_id: item.categoryId,
+                variants: item.variants,
+                enabled: item.enabled,
               });
             }
-            setLocal(LOCAL_ITEM_KEY, merged);
-            return merged;
-          });
+          }
+          setItems(initialItems);
+          setLocal(LOCAL_ITEM_KEY, initialItems);
         }
 
         if (invRes?.data && invRes.data.length > 0) {
