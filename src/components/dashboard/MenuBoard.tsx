@@ -204,7 +204,7 @@ export function MenuBoard() {
             </button>
           </div>
 
-          <ul className="mt-3 divide-y divide-baky-muted/30 md:mt-4 lg:mt-6">
+          <ul className="mt-3 max-h-[65vh] overflow-y-auto pr-1 divide-y divide-baky-muted/30 md:mt-4 lg:mt-6">
             {categories.map((c) => {
               const isSelected = activeCat === c.id;
               return (
@@ -294,7 +294,7 @@ export function MenuBoard() {
             </button>
           </div>
 
-          <ul className="mt-3 space-y-3 md:mt-4 md:space-y-4 lg:mt-6 lg:space-y-5">
+          <ul className="mt-3 max-h-[65vh] overflow-y-auto pr-1 space-y-3 md:mt-4 md:space-y-4 lg:mt-6 lg:space-y-5">
             {displayedItems.length === 0 ? (
               <li className="py-8 text-center text-sm text-baky-muted md:text-base">
                 No items found for this category. Click &quot;+ ADD NEW&quot; to add one!

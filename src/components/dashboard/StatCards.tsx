@@ -17,10 +17,34 @@ function StatCard({
 }
 
 export function StatCards() {
-  const { orders, inventory } = useStore();
+  const { orders, inventory, expenses, dateRange } = useStore();
 
-  const totalOrders = orders.length;
-  const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
+  const cutoffMs = (() => {
+    const now = new Date();
+    if (dateRange === "Today") {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      return start.getTime();
+    }
+    if (dateRange === "Last 7 Days") return now.getTime() - 7 * 86400000;
+    if (dateRange === "Last 30 Days") return now.getTime() - 30 * 86400000;
+    return 0;
+  })();
+
+  const filteredOrders = orders.filter((o) => {
+    if (!o.createdAt || cutoffMs === 0) return true;
+    const t = new Date(o.createdAt).getTime();
+    return Number.isNaN(t) ? true : t >= cutoffMs;
+  });
+
+  const filteredExpenses = expenses.filter((e) => {
+    if (!e.date || cutoffMs === 0) return true;
+    const t = new Date(e.date).getTime();
+    return Number.isNaN(t) ? true : t >= cutoffMs;
+  });
+
+  const totalOrders = filteredOrders.length;
+  const totalRevenue = filteredOrders.reduce((sum, o) => sum + o.total, 0);
+  const totalExpenses = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
   const lowStockItems = inventory.filter(
     (item) => item.current <= Math.max(2, Math.round(item.max * 0.3)),
   );
@@ -29,7 +53,7 @@ export function StatCards() {
     <div className="grid grid-cols-4 gap-2.5 md:gap-4 lg:gap-6">
       <StatCard>
         <p className="text-[10px] font-medium text-baky-muted md:text-sm lg:text-xl">
-          Today Orders
+          {dateRange === "Today" ? "Today Orders" : "Total Orders"}
         </p>
         <p className="mt-1 text-lg font-medium leading-none text-black md:mt-1.5 md:text-2xl lg:mt-2 lg:text-[26px]">
           {totalOrders}
@@ -41,7 +65,7 @@ export function StatCards() {
 
       <StatCard>
         <p className="text-[10px] font-medium text-baky-muted md:text-sm lg:text-xl">
-          Today Revenue
+          {dateRange === "Today" ? "Today Revenue" : "Total Revenue"}
         </p>
         <p className="mt-1 text-lg font-medium leading-none text-black md:mt-1.5 md:text-2xl lg:mt-2 lg:text-[26px]">
           ₹{totalRevenue.toLocaleString()}
@@ -51,7 +75,17 @@ export function StatCards() {
         </p>
       </StatCard>
 
-      <StatCard>{null}</StatCard>
+      <StatCard>
+        <p className="text-[10px] font-medium text-baky-muted md:text-sm lg:text-xl">
+          Total Expenses
+        </p>
+        <p className="mt-1 text-lg font-medium leading-none text-black md:mt-1.5 md:text-2xl lg:mt-2 lg:text-[26px]">
+          ₹{totalExpenses.toLocaleString()}
+        </p>
+        <p className="mt-1 text-[10px] font-medium text-baky-muted md:mt-1.5 md:text-sm lg:mt-2 lg:text-xl">
+          {filteredExpenses.length} records
+        </p>
+      </StatCard>
 
       <StatCard>
         <p className="text-[10px] font-medium text-baky-muted md:text-sm lg:text-xl">

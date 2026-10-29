@@ -4,12 +4,16 @@ import { StaffModal } from "./StaffModal";
 import { Plus, Trash2, Edit2, Shield, Phone, Key, UserCheck, Building } from "lucide-react";
 
 export function ManageBoard() {
-  const { staff, deleteStaff } = useStore();
+  const { staff, deleteStaff, outletInfo, updateOutletInfo, resetShopData } = useStore();
   const [activeSection, setActiveSection] = useState<"Staff" | "Outlets">("Staff");
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
   const [deletingStaff, setDeletingStaff] = useState<StaffMember | null>(null);
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
+  const [isEditingOutlet, setIsEditingOutlet] = useState(false);
+  const [outletName, setOutletName] = useState(outletInfo.name);
+  const [outletLoc, setOutletLoc] = useState(outletInfo.location);
+  const [outletHours, setOutletHours] = useState(outletInfo.hours);
 
   const togglePasswordVisibility = (id: string) => {
     setVisiblePasswords((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -177,26 +181,106 @@ export function ManageBoard() {
           ) : (
             /* Outlets section */
             <div className="flex flex-1 flex-col space-y-4">
-              <div className="border-b border-baky-muted/40 pb-3">
-                <h3 className="text-base font-bold text-black md:text-lg lg:text-xl flex items-center gap-2">
-                  <Building className="h-5 w-5 text-[#1177E5]" />
-                  Outlet Information
-                </h3>
-                <p className="text-xs text-baky-muted sm:text-sm">
-                  View and manage store branch configuration.
-                </p>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-baky-muted/40 pb-3">
+                <div>
+                  <h3 className="text-base font-bold text-black md:text-lg lg:text-xl flex items-center gap-2">
+                    <Building className="h-5 w-5 text-[#1177E5]" />
+                    Outlet Information
+                  </h3>
+                  <p className="text-xs text-baky-muted sm:text-sm">
+                    View and manage store branch configuration.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setOutletName(outletInfo.name);
+                    setOutletLoc(outletInfo.location);
+                    setOutletHours(outletInfo.hours);
+                    setIsEditingOutlet((v) => !v);
+                  }}
+                  className="flex items-center gap-1.5 rounded-xl bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-800 hover:bg-blue-50 hover:text-[#1177E5] transition-colors"
+                >
+                  <Edit2 className="h-3.5 w-3.5" />
+                  {isEditingOutlet ? "Cancel" : "Edit Outlet"}
+                </button>
               </div>
 
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-gray-900 text-base">Baky Dessert House (Main Outlet)</h4>
-                  <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
-                    Active
-                  </span>
+              {isEditingOutlet ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    updateOutletInfo({
+                      ...outletInfo,
+                      name: outletName.trim() || outletInfo.name,
+                      location: outletLoc.trim() || outletInfo.location,
+                      hours: outletHours.trim() || outletInfo.hours,
+                    });
+                    setIsEditingOutlet(false);
+                  }}
+                  className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3"
+                >
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700">Outlet Name</label>
+                    <input
+                      type="text"
+                      value={outletName}
+                      onChange={(e) => setOutletName(e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-xs text-black focus:border-[#1177E5] focus:outline-none sm:text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700">Location</label>
+                    <input
+                      type="text"
+                      value={outletLoc}
+                      onChange={(e) => setOutletLoc(e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-xs text-black focus:border-[#1177E5] focus:outline-none sm:text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700">Operating Hours</label>
+                    <input
+                      type="text"
+                      value={outletHours}
+                      onChange={(e) => setOutletHours(e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-xs text-black focus:border-[#1177E5] focus:outline-none sm:text-sm"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="submit"
+                      className="rounded-xl bg-[#1177E5] px-4 py-2 text-xs font-bold text-white hover:bg-blue-600"
+                    >
+                      Save Outlet Info
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-gray-900 text-base">{outletInfo.name}</h4>
+                    <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
+                      {outletInfo.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-600">Location: {outletInfo.location}</p>
+                  <p className="text-xs text-gray-600">Operating Hours: {outletInfo.hours}</p>
+                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                    <span className="text-xs text-baky-muted">Clear all orders & expenses for fresh shop start</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm("Clear all orders and expenses and reset shop data?")) {
+                          resetShopData();
+                        }
+                      }}
+                      className="rounded-xl bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-100 transition-colors"
+                    >
+                      Reset Shop Data
+                    </button>
+                  </div>
                 </div>
-                <p className="text-xs text-gray-600">Location: Main Store Counter</p>
-                <p className="text-xs text-gray-600">Operating Hours: 10:00 AM – 11:00 PM</p>
-              </div>
+              )}
             </div>
           )}
         </section>

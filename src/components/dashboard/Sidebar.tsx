@@ -12,6 +12,7 @@ import {
   X,
   UserCheck,
   ShieldCheck,
+  ChartNoAxesCombined,
 } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -25,6 +26,7 @@ const allLinkItems = [
   { label: "Menu", icon: UtensilsCrossed, to: "/menu", exact: false, adminOnly: true },
   { label: "Inventory", icon: FileCheck, to: "/inventory", exact: false, adminOnly: true },
   { label: "Expenses", icon: Receipt, to: "/expenses", exact: false, adminOnly: true },
+  { label: "Financial Report", icon: ChartNoAxesCombined, to: "/financial-report", exact: false, adminOnly: true },
   { label: "Manage", icon: Store, to: "/manage", exact: false, adminOnly: true },
 ] as const;
 
@@ -33,7 +35,8 @@ const stubItems = [{ label: "Help Center", icon: Info }] as const;
 export function Sidebar() {
   const [open, setOpen] = useState(false);
   const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
-  const { currentUser, logout } = useStore();
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const { currentUser, logout, outletInfo } = useStore();
   const navigate = useNavigate();
 
   const isStaff = currentUser?.role === "Staff";
@@ -118,6 +121,10 @@ export function Sidebar() {
           {stubItems.map(({ label, icon: Icon }) => (
             <button
               key={label}
+              onClick={() => {
+                setOpen(false);
+                setIsHelpOpen(true);
+              }}
               className="flex items-center gap-4 rounded-[13px] px-4 py-3 text-left text-xl font-medium text-black transition-colors hover:bg-baky-card/60 lg:text-2xl"
             >
               <Icon
@@ -157,6 +164,43 @@ export function Sidebar() {
         isOpen={isSwitchModalOpen}
         onClose={() => setIsSwitchModalOpen(false)}
       />
+
+      {/* Help Center Modal */}
+      {isHelpOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setIsHelpOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-5 border border-gray-200 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+              <h3 className="text-base font-bold text-black">Help Center — {outletInfo.name}</h3>
+              <button
+                onClick={() => setIsHelpOpen(false)}
+                className="text-baky-muted hover:text-black"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-2 text-xs text-gray-700 sm:text-sm">
+              <p><strong>POS:</strong> Select category, pick a variant if needed, add items, and click Place Order.</p>
+              <p><strong>Orders:</strong> Update order status (In Progress → Ready → Served) or print receipts.</p>
+              <p><strong>Menu & Inventory:</strong> Add, edit, or toggle categories, menu items, and stock levels.</p>
+              <p><strong>Manage:</strong> Add staff logins (POS & Orders access) or update outlet info.</p>
+            </div>
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setIsHelpOpen(false)}
+                className="rounded-xl bg-[#3395FF] px-4 py-2 text-xs font-semibold text-white hover:bg-[#2a86ea]"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

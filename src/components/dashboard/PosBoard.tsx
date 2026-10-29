@@ -7,6 +7,7 @@ export function PosBoard() {
   const enabledCategories = categories.filter((c) => c.enabled);
   const [activeCat, setActiveCat] = useState<string>(enabledCategories[0]?.id ?? "");
   const [cart, setCart] = useState<Record<string, OrderLine>>({});
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
 
   // Auto-sync activeCat if categories update, load from Supabase, or get disabled
   useEffect(() => {
@@ -24,27 +25,33 @@ export function PosBoard() {
       (activeCat ? i.categoryId === activeCat : true),
   );
 
-  const addToCart = (name: string, price: number) => {
+  const getCartKey = (itemName: string, variant?: string) =>
+    variant ? `${itemName} (${variant})` : itemName;
+
+  const addToCart = (name: string, price: number, variant?: string) => {
+    const key = getCartKey(name, variant);
     setCart((prev) => {
-      const existing = prev[name];
+      const existing = prev[key];
       return {
         ...prev,
-        [name]: {
+        [key]: {
           name,
           price,
           qty: existing ? existing.qty + 1 : 1,
+          variant,
         },
       };
     });
   };
 
-  const removeFromCart = (name: string) => {
+  const removeFromCart = (name: string, variant?: string) => {
+    const key = getCartKey(name, variant);
     setCart((prev) => {
-      const existing = prev[name];
+      const existing = prev[key];
       if (!existing) return prev;
       const next = { ...prev };
-      if (existing.qty <= 1) delete next[name];
-      else next[name] = { ...existing, qty: existing.qty - 1 };
+      if (existing.qty <= 1) delete next[key];
+      else next[key] = { ...existing, qty: existing.qty - 1 };
       return next;
     });
   };
@@ -63,9 +70,9 @@ export function PosBoard() {
   };
 
   return (
-    <div className="flex flex-1 flex-col rounded-[15px] bg-baky-surface w-full max-w-full overflow-visible sm:overflow-hidden">
+    <div className="flex flex-1 flex-col rounded-[15px] bg-baky-surface w-full max-w-full h-full min-h-0 overflow-hidden">
       {/* Mobile: Sticky Horizontal Category Pills */}
-      <div className="sticky top-0 z-20 flex flex-col border-b border-baky-muted/30 p-3 bg-baky-surface sm:hidden">
+      <div className="sticky top-0 z-20 flex shrink-0 flex-col border-b border-baky-muted/30 p-3 bg-baky-surface sm:hidden">
         <div className="flex items-center justify-between pb-2">
           <span className="text-xs font-semibold text-baky-muted uppercase tracking-wider">
             Categories ({enabledCategories.length})
@@ -83,11 +90,10 @@ export function PosBoard() {
               <button
                 key={c.id}
                 onClick={() => setActiveCat(c.id)}
-                className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
-                  isSelected
+                className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-medium transition-all ${isSelected
                     ? "bg-[#3395FF] text-white shadow-sm"
                     : "bg-baky-card text-black hover:bg-baky-card/80"
-                }`}
+                  }`}
               >
                 {c.name}
               </button>
@@ -96,14 +102,14 @@ export function PosBoard() {
         </div>
       </div>
 
-      <div className="grid flex-1 grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+      <div className="grid flex-1 min-h-0 overflow-hidden grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
         {/* Desktop / Tablet: Category Column */}
-        <section className="hidden sm:flex flex-col border-r border-baky-muted/50 p-4 md:p-5 lg:p-6">
-          <h2 className="text-base font-medium text-black md:text-xl lg:text-2xl">
+        <section className="hidden sm:flex flex-col min-h-0 overflow-hidden border-r border-baky-muted/50 p-4 md:p-5 lg:p-6">
+          <h2 className="shrink-0 text-base font-medium text-black md:text-xl lg:text-2xl">
             Category ({enabledCategories.length})
           </h2>
 
-          <ul className="mt-4 divide-y divide-baky-muted/30 md:mt-6">
+          <ul className="mt-4 flex-1 min-h-0 overflow-y-auto pr-1 divide-y divide-baky-muted/30 md:mt-6">
             {enabledCategories.length === 0 ? (
               <li className="px-2 py-3 text-sm text-baky-muted">
                 No active categories. Enable some under Menu.
@@ -113,11 +119,10 @@ export function PosBoard() {
                 <li key={c.id}>
                   <button
                     onClick={() => setActiveCat(c.id)}
-                    className={`flex w-full items-center justify-between rounded-md px-2 py-3 text-left text-base text-black transition-colors md:py-3.5 md:text-lg lg:py-4 lg:text-xl ${
-                      activeCat === c.id
+                    className={`flex w-full items-center justify-between rounded-md px-2 py-3 text-left text-base text-black transition-colors md:py-3.5 md:text-lg lg:py-4 lg:text-xl ${activeCat === c.id
                         ? "bg-baky-card font-medium"
                         : "hover:bg-baky-card/50"
-                    }`}
+                      }`}
                   >
                     <span>{c.name}</span>
                     <span className="text-base font-semibold text-[#1177E5] md:text-lg">
@@ -131,8 +136,8 @@ export function PosBoard() {
         </section>
 
         {/* Items Column (both Mobile and Desktop) */}
-        <section className="flex flex-1 flex-col p-3 sm:p-4 md:p-5 lg:p-6 min-w-0">
-          <div className="flex items-center justify-between gap-2">
+        <section className="flex flex-1 flex-col min-h-0 overflow-hidden p-3 sm:p-4 md:p-5 lg:p-6 min-w-0">
+          <div className="flex shrink-0 items-center justify-between gap-2">
             <h2 className="text-sm font-medium text-black sm:text-base md:text-xl lg:text-2xl">
               Items ({visibleItems.length})
             </h2>
@@ -143,22 +148,26 @@ export function PosBoard() {
             )}
           </div>
 
-          <ul className="mt-3 flex-1 space-y-2.5 sm:space-y-3 md:mt-6 md:space-y-4">
+          <ul className="mt-3 flex-1 min-h-0 overflow-y-auto pr-1 space-y-2.5 sm:space-y-3 md:mt-6 md:space-y-4">
             {visibleItems.length === 0 ? (
               <li className="py-8 text-center text-sm text-baky-muted md:text-xl">
                 No items in this category.
               </li>
             ) : (
               visibleItems.map((item) => {
-                const inCart = cart[item.name]?.qty ?? 0;
+                const activeVariant =
+                  item.variants.length > 0
+                    ? selectedVariants[item.id] ?? item.variants[0]
+                    : undefined;
+                const cartKey = getCartKey(item.name, activeVariant);
+                const inCart = cart[cartKey]?.qty ?? 0;
                 return (
                   <li
                     key={item.id}
-                    className={`rounded-lg border border-transparent p-2.5 transition-colors sm:p-3 md:p-3.5 lg:p-4 ${
-                      inCart > 0
+                    className={`rounded-lg border border-transparent p-2.5 transition-colors sm:p-3 md:p-3.5 lg:p-4 ${inCart > 0
                         ? "bg-baky-card border-baky-muted/30"
                         : "bg-white/80 hover:bg-white"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-start justify-between gap-2 sm:gap-4">
                       <div className="min-w-0 flex-1">
@@ -173,15 +182,38 @@ export function PosBoard() {
                         </div>
                         {item.variants.length > 0 && (
                           <ul className="mt-1 space-y-1 pl-4 sm:mt-1.5 md:mt-2 md:space-y-2">
-                            {item.variants.map((v) => (
-                              <li
-                                key={v}
-                                className="flex items-center gap-1.5 text-[11px] text-baky-muted sm:text-xs md:text-sm lg:text-[15px]"
-                              >
-                                <span className="h-[5px] w-[5px] shrink-0 rounded-full border border-baky-muted md:h-[7px] md:w-[7px]" />
-                                {v}
-                              </li>
-                            ))}
+                            {item.variants.map((v) => {
+                              const isVarSelected = activeVariant === v;
+                              const varQty = cart[getCartKey(item.name, v)]?.qty ?? 0;
+                              return (
+                                <li
+                                  key={v}
+                                  onClick={() =>
+                                    setSelectedVariants((prev) => ({
+                                      ...prev,
+                                      [item.id]: v,
+                                    }))
+                                  }
+                                  className={`flex cursor-pointer items-center gap-1.5 text-[11px] sm:text-xs md:text-sm lg:text-[15px] ${isVarSelected
+                                      ? "font-medium text-black"
+                                      : "text-baky-muted hover:text-black"
+                                    }`}
+                                >
+                                  <span
+                                    className={`h-[5px] w-[5px] shrink-0 rounded-full border md:h-[7px] md:w-[7px] ${isVarSelected
+                                        ? "border-baky-bar-strong bg-baky-bar-strong"
+                                        : "border-baky-muted"
+                                      }`}
+                                  />
+                                  <span>{v}</span>
+                                  {varQty > 0 && (
+                                    <span className="text-[10px] font-semibold text-[#1177E5]">
+                                      (×{varQty})
+                                    </span>
+                                  )}
+                                </li>
+                              );
+                            })}
                           </ul>
                         )}
                       </div>
@@ -191,7 +223,7 @@ export function PosBoard() {
                         {inCart > 0 ? (
                           <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
                             <button
-                              onClick={() => removeFromCart(item.name)}
+                              onClick={() => removeFromCart(item.name, activeVariant)}
                               className="flex h-7 w-7 items-center justify-center rounded-md bg-baky-track text-sm font-semibold text-black hover:bg-gray-300 md:h-8 md:w-8 md:text-lg"
                             >
                               −
@@ -200,7 +232,7 @@ export function PosBoard() {
                               {inCart}
                             </span>
                             <button
-                              onClick={() => addToCart(item.name, item.price)}
+                              onClick={() => addToCart(item.name, item.price, activeVariant)}
                               className="flex h-7 w-7 items-center justify-center rounded-md bg-[#3395FF] text-sm font-semibold text-white hover:bg-[#2a86ea] md:h-8 md:w-8 md:text-lg"
                             >
                               +
@@ -208,7 +240,7 @@ export function PosBoard() {
                           </div>
                         ) : (
                           <button
-                            onClick={() => addToCart(item.name, item.price)}
+                            onClick={() => addToCart(item.name, item.price, activeVariant)}
                             className="rounded-md bg-[#3395FF]/10 px-3 py-1.5 text-xs font-semibold text-[#1177E5] transition-colors hover:bg-[#3395FF] hover:text-white sm:text-sm md:text-base"
                           >
                             + ADD
@@ -223,39 +255,41 @@ export function PosBoard() {
           </ul>
 
           {/* Cart Breakdown & Checkout (Sticky at Bottom on Mobile) */}
-          <div className="sticky bottom-0 z-20 bg-baky-surface pt-3 pb-1 border-t border-baky-muted/30 sm:static sm:bg-transparent sm:p-0 sm:border-0">
+          <div className="shrink-0 bg-baky-surface pt-3 pb-1 border-t border-baky-muted/30 sm:bg-transparent sm:p-0 sm:border-0">
             {lines.length > 0 && (
-              <div className="space-y-1.5 border-t border-baky-muted/40 pt-2 pb-2 md:mt-6 md:pt-4">
+              <div className="space-y-1.5 border-t border-baky-muted/40 pt-2 pb-2 md:mt-4 md:pt-3">
                 <div className="flex items-center justify-between text-xs font-medium text-baky-muted">
                   <span>Cart Items</span>
                   <span>{lines.reduce((s, l) => s + l.qty, 0)} qty</span>
                 </div>
-                <div className="max-h-24 sm:max-h-32 overflow-y-auto divide-y divide-baky-muted/20">
-                  {lines.map((l) => (
-                    <div
-                      key={l.name}
-                      className="flex justify-between py-1 text-xs text-black sm:text-sm md:text-base"
-                    >
-                      <span className="truncate pr-2">
-                        {l.name} × {l.qty}
-                      </span>
-                      <span className="shrink-0 font-medium">₹{l.price * l.qty}</span>
-                    </div>
-                  ))}
+                <div className="max-h-24 sm:max-h-28 overflow-y-auto divide-y divide-baky-muted/20">
+                  {lines.map((l) => {
+                    const label = l.variant ? `${l.name} (${l.variant})` : l.name;
+                    return (
+                      <div
+                        key={label}
+                        className="flex justify-between py-1 text-xs text-black sm:text-sm md:text-base"
+                      >
+                        <span className="truncate pr-2">
+                          {label} × {l.qty}
+                        </span>
+                        <span className="shrink-0 font-medium">₹{l.price * l.qty}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
             {/* Checkout Button */}
-            <div className="pt-2 md:mt-6">
+            <div className="pt-2 md:mt-4">
               <button
                 onClick={handleCheckout}
                 disabled={lines.length === 0}
-                className={`flex h-[48px] w-full items-center justify-center rounded-[12px] text-base font-medium text-white transition-all sm:h-[54px] md:h-[62px] md:text-xl lg:h-[70px] lg:text-2xl ${
-                  lines.length > 0
+                className={`flex h-[48px] w-full items-center justify-center rounded-[12px] text-base font-medium text-white transition-all sm:h-[54px] md:h-[62px] md:text-xl lg:h-[70px] lg:text-2xl ${lines.length > 0
                     ? "bg-[#3395FF] shadow hover:bg-[#2a86ea] active:scale-[0.99]"
                     : "bg-gray-300 cursor-not-allowed opacity-60"
-                }`}
+                  }`}
               >
                 {total > 0 ? `Place Order · ₹${total}` : "Select items to order"}
               </button>

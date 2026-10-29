@@ -182,10 +182,10 @@ export function OrdersBoard() {
                   </div>
                   <span
                     className="truncate text-baky-muted cursor-pointer hover:text-gray-900 transition-colors"
-                    title={o.lines.map((l) => `${l.name} ×${l.qty}`).join(", ")}
+                    title={o.lines.map((l) => `${l.name}${l.variant ? ` (${l.variant})` : ""} ×${l.qty}`).join(", ")}
                     onClick={() => setViewingOrder(o)}
                   >
-                    {o.lines.map((l) => `${l.name} ×${l.qty}`).join(", ")}
+                    {o.lines.map((l) => `${l.name}${l.variant ? ` (${l.variant})` : ""} ×${l.qty}`).join(", ")}
                   </span>
                   <span className="font-bold text-gray-900">₹{o.total}</span>
                   <div className="flex items-center justify-end sm:justify-start gap-2 min-w-0">

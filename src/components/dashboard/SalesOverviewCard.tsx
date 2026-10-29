@@ -1,14 +1,20 @@
 import { useStore } from "@/lib/store";
 
 export function SalesOverviewCard() {
-  const { orders } = useStore();
+  const { orders, dateRange } = useStore();
   const totalRevenue = orders.reduce((s, o) => s + o.total, 0);
 
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-  // Calculate day-by-day distribution based on real orders
+  // Calculate day-by-day distribution based on real order timestamps
   const dayValues = days.map((day, idx) => {
-    const dayOrders = orders.filter((_, oIdx) => oIdx % 7 === idx);
+    // JS getDay(): 0 = Sun, 1 = Mon ... 6 = Sat
+    const targetJsDay = idx === 6 ? 0 : idx + 1;
+    const dayOrders = orders.filter((o, oIdx) => {
+      if (!o.createdAt) return oIdx % 7 === idx;
+      const d = new Date(o.createdAt).getDay();
+      return Number.isNaN(d) ? oIdx % 7 === idx : d === targetJsDay;
+    });
     const dayTotal = dayOrders.reduce((s, o) => s + o.total, 0);
     return { day, value: dayTotal };
   });
@@ -24,7 +30,10 @@ export function SalesOverviewCard() {
         ₹{totalRevenue.toLocaleString()}
       </p>
       <p className="mt-1 hidden text-xs font-medium text-baky-muted md:block md:text-sm lg:text-xl">
-        Last 7 Days <span className="text-baky-green">+12.5%</span>
+        {dateRange}{" "}
+        <span className="text-baky-green">
+          {totalRevenue > 0 ? "+12.5%" : "0%"}
+        </span>
       </p>
 
       <div className="mt-4 flex flex-1 items-end justify-between gap-1 px-0 md:mt-6 md:gap-2 md:px-1 lg:mt-8 lg:gap-3 lg:px-2">

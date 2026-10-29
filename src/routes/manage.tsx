@@ -36,7 +36,7 @@ function Manage() {
         <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
           <Topbar title="Manage Baky" />
 
-          <main className="flex flex-1 overflow-y-auto p-4 lg:p-6">
+          <main className="flex flex-1 flex-col min-h-0 overflow-y-auto p-3 sm:p-4 lg:p-6">
             {currentUser?.role === "Staff" ? (
               <StaffRestrictedView pageName="Manage & Staff Settings" />
             ) : (
