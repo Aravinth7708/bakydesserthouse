@@ -17,7 +17,7 @@ export function LowInventoryCard() {
       <div className="mt-4 space-y-4 md:space-y-5 lg:mt-6 lg:space-y-6">
         {inventory.length === 0 ? (
           <p className="py-4 text-center text-xs text-baky-muted md:text-sm">
-            No inventory items tracked yet.
+            No inventory items tracked yett.
           </p>
         ) : (
           inventory.map((item) => {
