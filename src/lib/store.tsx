@@ -145,6 +145,7 @@ type Store = {
     id: string,
     paymentMethod: PaymentMethod | string,
     paymentDetails?: string,
+    total?: number,
   ) => Promise<void>;
   deleteOrder: (id: string) => Promise<void>;
   clearAllOrders: () => Promise<void>;
@@ -1096,12 +1097,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
         toast.success(`Order ${id} moved to ${nextStatus}`);
       },
-      closeOrder: async (id, paymentMethod, paymentDetails) => {
+      closeOrder: async (id, paymentMethod, paymentDetails, total) => {
+        const orderTotal = total ?? orders.find((order) => order.id === id)?.total;
         setOrders((prev) => {
           const next = prev.map((o) => {
             if (o.id !== id) return o;
             return {
               ...o,
+              total: total ?? o.total,
               status: "Past Orders" as OrderStatus,
               paymentMethod,
               paymentDetails,
@@ -1115,6 +1118,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const { error } = await supabase
             .from("orders")
             .update({
+              ...(orderTotal !== undefined ? { total: orderTotal } : {}),
               status: "Past Orders",
               payment_method: paymentMethod,
               payment_details: paymentDetails || null,
@@ -1124,7 +1128,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (error && !isNetworkError(error)) {
             await supabase
               .from("orders")
-              .update({ status: "Past Orders" })
+              .update({ ...(orderTotal !== undefined ? { total: orderTotal } : {}), status: "Past Orders" })
               .eq("id", id)
               .then(() => { }, () => { });
           }

@@ -12,7 +12,9 @@ export function CloseOrderModal({ order, onClose }: CloseOrderModalProps) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("Cash");
   const [cashAmount, setCashAmount] = useState<number>(0);
   const [gpayAmount, setGpayAmount] = useState<number>(0);
+  const [isTakeaway, setIsTakeaway] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const payableTotal = order ? order.total + (isTakeaway ? 10 : 0) : 0;
 
   useEffect(() => {
     if (order) {
@@ -20,6 +22,7 @@ export function CloseOrderModal({ order, onClose }: CloseOrderModalProps) {
       setCashAmount(half);
       setGpayAmount(order.total - half);
       setSelectedMethod("Cash");
+      setIsTakeaway(false);
     }
   }, [order]);
 
@@ -28,36 +31,45 @@ export function CloseOrderModal({ order, onClose }: CloseOrderModalProps) {
   const handleCashChange = (val: number) => {
     const cash = Math.max(0, val);
     setCashAmount(cash);
-    setGpayAmount(Math.max(0, order.total - cash));
+    setGpayAmount(Math.max(0, payableTotal - cash));
   };
 
   const handleGpayChange = (val: number) => {
     const gpay = Math.max(0, val);
     setGpayAmount(gpay);
-    setCashAmount(Math.max(0, order.total - gpay));
+    setCashAmount(Math.max(0, payableTotal - gpay));
   };
 
   const setHalfSplit = () => {
-    const half = Math.round(order.total / 2);
+    const half = Math.round(payableTotal / 2);
     setCashAmount(half);
-    setGpayAmount(order.total - half);
+    setGpayAmount(payableTotal - half);
   };
 
-  const isSplitValid = selectedMethod !== "Split Payment" || (cashAmount + gpayAmount === order.total);
+  const handleTakeawayChange = (checked: boolean) => {
+    const nextTotal = order.total + (checked ? 10 : 0);
+    const nextCash = Math.min(cashAmount, nextTotal);
+    setCashAmount(nextCash);
+    setGpayAmount(nextTotal - nextCash);
+    setIsTakeaway(checked);
+  };
+
+  const isSplitValid = selectedMethod !== "Split Payment" || (cashAmount + gpayAmount === payableTotal);
 
   const handleConfirm = async () => {
     if (!order || !isSplitValid || isSubmitting) return;
 
     setIsSubmitting(true);
     try {
-      let details = "";
+      const detailParts: string[] = [];
+      if (isTakeaway) detailParts.push("Takeaway charges: ₹10");
       if (selectedMethod === "Split Payment") {
-        details = `Cash: ₹${cashAmount}, GPay: ₹${gpayAmount}`;
+        detailParts.push(`Cash: ₹${cashAmount}, GPay: ₹${gpayAmount}`);
       } else if (selectedMethod === "Nil") {
-        details = "Item given without payment (Unpaid)";
+        detailParts.push("Item given without payment (Unpaid)");
       }
 
-      await closeOrder(order.id, selectedMethod, details);
+      await closeOrder(order.id, selectedMethod, detailParts.join(" · "), payableTotal);
       onClose();
     } catch (err) {
       console.error("Close order error:", err);
@@ -153,11 +165,29 @@ export function CloseOrderModal({ order, onClose }: CloseOrderModalProps) {
             <p className="truncate text-xs text-gray-200 font-normal">
               {order.lines.map((l) => `${l.name} ×${l.qty}`).join(", ")}
             </p>
+            {isTakeaway && (
+              <p className="mt-0.5 text-[10px] font-medium text-amber-200 sm:text-xs">
+                Includes ₹10 takeaway charge
+              </p>
+            )}
           </div>
           <span className="text-xl font-extrabold text-white sm:text-2xl shrink-0">
-            ₹{order.total}
+            ₹{payableTotal}
           </span>
         </div>
+
+        <label className="mb-3 flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 sm:mb-4 sm:px-4">
+          <span className="min-w-0">
+            <span className="block text-xs font-bold text-gray-900 sm:text-sm">Takeaway order</span>
+            <span className="block text-[11px] text-gray-600 sm:text-xs">Add ₹10 takeaway charge</span>
+          </span>
+          <input
+            type="checkbox"
+            checked={isTakeaway}
+            onChange={(event) => handleTakeawayChange(event.target.checked)}
+            className="h-5 w-5 shrink-0 accent-[#1177E5]"
+          />
+        </label>
 
         {/* Options List */}
         <div className="flex-1 overflow-y-auto pr-1 space-y-2.5 sm:space-y-3 max-h-[50vh]">
@@ -229,7 +259,7 @@ export function CloseOrderModal({ order, onClose }: CloseOrderModalProps) {
                         <input
                           type="number"
                           min="0"
-                          max={order.total}
+                          max={payableTotal}
                           value={cashAmount || ""}
                           onChange={(e) => handleCashChange(Number(e.target.value))}
                           className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-bold text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
@@ -242,7 +272,7 @@ export function CloseOrderModal({ order, onClose }: CloseOrderModalProps) {
                         <input
                           type="number"
                           min="0"
-                          max={order.total}
+                          max={payableTotal}
                           value={gpayAmount || ""}
                           onChange={(e) => handleGpayChange(Number(e.target.value))}
                           className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-bold text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
@@ -252,11 +282,11 @@ export function CloseOrderModal({ order, onClose }: CloseOrderModalProps) {
 
                     <div className="flex items-center justify-between text-[11px] pt-1">
                       <span className="text-gray-600 font-medium">
-                        Combined Total: ₹{cashAmount + gpayAmount} / ₹{order.total}
+                        Combined Total: ₹{cashAmount + gpayAmount} / ₹{payableTotal}
                       </span>
-                      {cashAmount + gpayAmount !== order.total ? (
+                      {cashAmount + gpayAmount !== payableTotal ? (
                         <span className="font-bold text-rose-600">
-                          Must equal ₹{order.total}
+                          Must equal ₹{payableTotal}
                         </span>
                       ) : (
                         <span className="font-bold text-emerald-600 flex items-center gap-1">
