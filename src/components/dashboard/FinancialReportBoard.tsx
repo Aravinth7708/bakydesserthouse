@@ -235,10 +235,10 @@ export function FinancialReportBoard() {
     const expenseTop = Math.max(rowY + 112, 690);
     const expenseSvg = dailyReport.expenses.map(
       (expense, index) =>
-        `<text x="${padding}" y="${expenseTop + 52 + index * 45}" font-size="22" fill="#242424">${escapeXml(expense.title)} (${escapeXml(expense.category)})</text><text x="1136" y="${expenseTop + 52 + index * 45}" text-anchor="end" font-size="22" fill="#242424">${escapeXml(money(expense.amount))}</text>`,
+        `<text x="${padding}" y="${expenseTop + 52 + index * 45}" font-size="22" fill="#242424">${escapeXml(expense.title)} · ${escapeXml(expense.category)} · ${escapeXml(expense.paymentMethod || "Cash")}</text><text x="1136" y="${expenseTop + 52 + index * 45}" text-anchor="end" font-size="22" fill="#242424">${escapeXml(money(expense.amount))}</text>`,
     );
     const height = Math.max(880, expenseTop + dailyReport.expenses.length * 45 + 160);
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#ffffff"/><rect width="100%" height="250" fill="#171717"/><text x="${padding}" y="76" font-family="Arial,sans-serif" font-size="24" fill="#d8b1e5">BAKY DESSERT HOUSE</text><text x="${padding}" y="133" font-family="Arial,sans-serif" font-size="42" font-weight="700" fill="#ffffff">Daily sales report</text><text x="${padding}" y="180" font-family="Arial,sans-serif" font-size="23" fill="#dedede">${escapeXml(selectedDateLabel)}</text><text x="${padding}" y="310" font-family="Arial,sans-serif" font-size="18" fill="#686868">PAID REVENUE</text><text x="${padding}" y="355" font-family="Arial,sans-serif" font-size="34" font-weight="700" fill="#171717">${escapeXml(money(dailyReport.revenue))}</text><text x="440" y="310" font-family="Arial,sans-serif" font-size="18" fill="#686868">EXPENSES</text><text x="440" y="355" font-family="Arial,sans-serif" font-size="34" font-weight="700" fill="#171717">${escapeXml(money(dailyReport.expenseTotal))}</text><text x="790" y="310" font-family="Arial,sans-serif" font-size="18" fill="#686868">NET BALANCE</text><text x="790" y="355" font-family="Arial,sans-serif" font-size="34" font-weight="700" fill="${dailyReport.net < 0 ? "#be123c" : "#047857"}">${escapeXml(money(dailyReport.net))}</text><text x="${padding}" y="430" font-family="Arial,sans-serif" font-size="20" fill="#242424">Cash ${escapeXml(money(dailyReport.payments.cash))}   |   GPay / UPI ${escapeXml(money(dailyReport.payments.gpay))}   |   Online ${escapeXml(money(dailyReport.payments.online))}</text><text x="${padding}" y="510" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#171717">Items sold (${dailyReport.itemCount} units)</text><text x="${padding}" y="548" font-family="Arial,sans-serif" font-size="17" fill="#686868">ITEM</text><text x="850" y="548" text-anchor="end" font-family="Arial,sans-serif" font-size="17" fill="#686868">QTY</text><text x="1136" y="548" text-anchor="end" font-family="Arial,sans-serif" font-size="17" fill="#686868">SALES</text><line x1="${padding}" y1="562" x2="1136" y2="562" stroke="#dddddd"/>${itemSvg.length ? itemSvg.join("") : `<text x="${padding}" y="610" font-size="22" fill="#686868">No paid items recorded for this day.</text>`}<text x="${padding}" y="${expenseTop}" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#171717">Expenses (${dailyReport.expenses.length})</text><line x1="${padding}" y1="${expenseTop + 12}" x2="1136" y2="${expenseTop + 12}" stroke="#dddddd"/>${expenseSvg.length ? expenseSvg.join("") : `<text x="${padding}" y="${expenseTop + 52}" font-size="22" fill="#686868">No expenses recorded for this day.</text>`}</svg>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#ffffff"/><rect width="100%" height="250" fill="#f5f1f8"/><rect x="${padding}" y="48" width="6" height="128" rx="3" fill="#795789"/><text x="${padding + 24}" y="76" font-family="Arial,sans-serif" font-size="24" font-weight="700" fill="#171717">Baky Dessert House</text><text x="${padding + 24}" y="133" font-family="Arial,sans-serif" font-size="42" font-weight="700" fill="#171717">Daily sales report</text><text x="${padding + 24}" y="180" font-family="Arial,sans-serif" font-size="23" fill="#686868">${escapeXml(selectedDateLabel)}</text><rect x="64" y="270" width="330" height="112" rx="14" fill="#f8f8f8"/><rect x="418" y="270" width="330" height="112" rx="14" fill="#fff5f5"/><rect x="772" y="270" width="364" height="112" rx="14" fill="#f0f8f3"/><text x="88" y="310" font-family="Arial,sans-serif" font-size="17" fill="#686868">TOTAL SALES</text><text x="88" y="355" font-family="Arial,sans-serif" font-size="34" font-weight="700" fill="#171717">${escapeXml(money(dailyReport.revenue))}</text><text x="442" y="310" font-family="Arial,sans-serif" font-size="17" fill="#686868">TOTAL EXPENSES</text><text x="442" y="355" font-family="Arial,sans-serif" font-size="34" font-weight="700" fill="#be123c">${escapeXml(money(dailyReport.expenseTotal))}</text><text x="796" y="310" font-family="Arial,sans-serif" font-size="17" fill="#686868">NET PROFIT</text><text x="796" y="355" font-family="Arial,sans-serif" font-size="34" font-weight="700" fill="${dailyReport.net < 0 ? "#be123c" : "#047857"}">${escapeXml(money(dailyReport.net))}</text><text x="${padding}" y="430" font-family="Arial,sans-serif" font-size="20" font-weight="700" fill="#242424">Payment breakdown</text><text x="${padding}" y="470" font-family="Arial,sans-serif" font-size="18" fill="#686868">Cash received</text><text x="340" y="470" text-anchor="end" font-family="Arial,sans-serif" font-size="20" font-weight="700" fill="#171717">${escapeXml(money(dailyReport.payments.cash))}</text><text x="440" y="470" font-family="Arial,sans-serif" font-size="18" fill="#686868">GPay / UPI</text><text x="748" y="470" text-anchor="end" font-family="Arial,sans-serif" font-size="20" font-weight="700" fill="#171717">${escapeXml(money(dailyReport.payments.gpay))}</text><text x="790" y="470" font-family="Arial,sans-serif" font-size="18" fill="#686868">Online orders</text><text x="1136" y="470" text-anchor="end" font-family="Arial,sans-serif" font-size="20" font-weight="700" fill="#171717">${escapeXml(money(dailyReport.payments.online))}</text><text x="${padding}" y="530" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#171717">Items sold (${dailyReport.itemCount} units)</text><text x="${padding}" y="568" font-family="Arial,sans-serif" font-size="17" fill="#686868">ITEM</text><text x="850" y="568" text-anchor="end" font-family="Arial,sans-serif" font-size="17" fill="#686868">QTY</text><text x="1136" y="568" text-anchor="end" font-family="Arial,sans-serif" font-size="17" fill="#686868">SALES</text><line x1="${padding}" y1="582" x2="1136" y2="582" stroke="#dddddd"/>${itemSvg.length ? itemSvg.join("") : `<text x="${padding}" y="630" font-size="22" fill="#686868">No paid items recorded for this day.</text>`}<text x="${padding}" y="${expenseTop}" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#171717">Expenses (${dailyReport.expenses.length})</text><line x1="${padding}" y1="${expenseTop + 12}" x2="1136" y2="${expenseTop + 12}" stroke="#dddddd"/>${expenseSvg.length ? expenseSvg.join("") : `<text x="${padding}" y="${expenseTop + 52}" font-size="22" fill="#686868">No expenses recorded for this day.</text>`}</svg>`;
     const image = new Image();
     const svgUrl = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml;charset=utf-8" }));
     try {
@@ -286,13 +286,13 @@ export function FinancialReportBoard() {
     const expenseRows = dailyReport.expenses
       .map(
         (expense) =>
-          `<tr><td>${escapeXml(expense.title)}<small>${escapeXml(expense.category)}${expense.notes ? ` - ${escapeXml(expense.notes)}` : ""}</small></td><td class="number">${escapeXml(money(expense.amount))}</td></tr>`,
+          `<tr><td>${escapeXml(expense.title)}<small>${escapeXml(expense.category)} · Paid by ${escapeXml(expense.paymentMethod || "Cash")}${expense.notes ? ` · ${escapeXml(expense.notes)}` : ""}</small></td><td class="number">${escapeXml(money(expense.amount))}</td></tr>`,
       )
       .join("");
     printWindow.document
       .write(`<!doctype html><html><head><meta charset="utf-8"><title>Daily Sales Report - ${escapeXml(dailyDate)}</title><style>
-      @page{size:A4;margin:14mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#171717;margin:0;font-size:12px}header{background:#171717;color:#fff;padding:24px 28px;border-radius:12px}header small{color:#d8b1e5;letter-spacing:1px;font-weight:bold}h1{font-size:27px;margin:14px 0 6px}header p{color:#ddd;margin:0}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0}.metric{background:#f6f6f6;border-radius:9px;padding:14px}.metric span{display:block;color:#686868;font-size:10px;text-transform:uppercase}.metric strong{display:block;margin-top:7px;font-size:20px}.payments{background:#fafafa;border-radius:8px;padding:12px;display:flex;justify-content:space-between;margin-bottom:22px}h2{font-size:17px;margin:20px 0 8px}table{width:100%;border-collapse:collapse}th{text-align:left;color:#686868;text-transform:uppercase;font-size:9px;letter-spacing:.5px;padding:8px;border-bottom:1px solid #ddd}td{padding:9px 8px;border-bottom:1px solid #eee;vertical-align:top}.number{text-align:right;white-space:nowrap}small{display:block;color:#686868;margin-top:3px}.note{color:#686868;font-size:10px;margin-top:18px}@media print{header,.metric,.payments{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
-    </style></head><body><header><small>BAKY DESSERT HOUSE</small><h1>Daily sales report</h1><p>${escapeXml(selectedDateLabel)}</p></header><div class="metrics"><div class="metric"><span>Paid revenue</span><strong>${escapeXml(money(dailyReport.revenue))}</strong></div><div class="metric"><span>Expenses</span><strong>${escapeXml(money(dailyReport.expenseTotal))}</strong></div><div class="metric"><span>Net balance</span><strong>${escapeXml(money(dailyReport.net))}</strong></div></div><div class="payments"><span>Cash <b>${escapeXml(money(dailyReport.payments.cash))}</b></span><span>GPay / UPI <b>${escapeXml(money(dailyReport.payments.gpay))}</b></span><span>Online <b>${escapeXml(money(dailyReport.payments.online))}</b></span></div><h2>Items sold (${dailyReport.itemCount} units)</h2><table><thead><tr><th>Item</th><th class="number">Qty</th><th class="number">Sales</th></tr></thead><tbody>${items || `<tr><td colspan="3">No paid items recorded for this day.</td></tr>`}</tbody></table><h2>Expenses (${dailyReport.expenses.length})</h2><table><thead><tr><th>Expense</th><th class="number">Amount</th></tr></thead><tbody>${expenseRows || `<tr><td colspan="2">No expenses recorded for this day.</td></tr>`}</tbody></table><p class="note">Sales include orders marked paid on this order date. Open and unpaid orders are excluded.</p><script>window.addEventListener('load',()=>{window.focus();window.print()})</script></body></html>`);
+      @page{size:A4;margin:14mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#171717;margin:0;font-size:12px}header{background:#f5f1f8;color:#171717;padding:24px 28px;border-radius:12px;border-left:5px solid #795789}header small{color:#795789;letter-spacing:1px;font-weight:bold}h1{font-size:27px;margin:14px 0 6px}header p{color:#686868;margin:0}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0}.metric{background:#f6f6f6;border-radius:9px;padding:14px}.metric span{display:block;color:#686868;font-size:10px;text-transform:uppercase}.metric strong{display:block;margin-top:7px;font-size:20px}.payments{background:#fafafa;border-radius:8px;padding:12px;display:flex;justify-content:space-between;margin-bottom:22px}h2{font-size:17px;margin:20px 0 8px}table{width:100%;border-collapse:collapse}th{text-align:left;color:#686868;text-transform:uppercase;font-size:9px;letter-spacing:.5px;padding:8px;border-bottom:1px solid #ddd}td{padding:9px 8px;border-bottom:1px solid #eee;vertical-align:top}.number{text-align:right;white-space:nowrap}small{display:block;color:#686868;margin-top:3px}.note{color:#686868;font-size:10px;margin-top:18px}@media print{header,.metric,.payments{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+    </style></head><body><header><small>Baky Dessert House</small><h1>Daily sales report</h1><p>${escapeXml(selectedDateLabel)} · ${dailyReport.orders.length} paid orders</p></header><div class="metrics"><div class="metric"><span>Total sales</span><strong>${escapeXml(money(dailyReport.revenue))}</strong></div><div class="metric"><span>Total expenses</span><strong>${escapeXml(money(dailyReport.expenseTotal))}</strong></div><div class="metric"><span>Net profit</span><strong>${escapeXml(money(dailyReport.net))}</strong></div></div><div class="payments"><span>Cash received <b>${escapeXml(money(dailyReport.payments.cash))}</b></span><span>GPay / UPI <b>${escapeXml(money(dailyReport.payments.gpay))}</b></span><span>Online orders <b>${escapeXml(money(dailyReport.payments.online))}</b></span></div><h2>Items sold (${dailyReport.itemCount} units)</h2><table><thead><tr><th>Item</th><th class="number">Qty</th><th class="number">Sales</th></tr></thead><tbody>${items || `<tr><td colspan="3">No paid items recorded for this day.</td></tr>`}</tbody></table><h2>Expenses (${dailyReport.expenses.length}) · ${escapeXml(money(dailyReport.expenseTotal))}</h2><table><thead><tr><th>Expense</th><th class="number">Amount</th></tr></thead><tbody>${expenseRows || `<tr><td colspan="2">No expenses recorded for this day.</td></tr>`}</tbody></table><p class="note">Sales include orders marked paid on this order date. Open and unpaid orders are excluded.</p><script>window.addEventListener('load',()=>{window.focus();window.print()})</script></body></html>`);
     printWindow.document.close();
     printWindow.opener = null;
   };
@@ -320,7 +320,7 @@ export function FinancialReportBoard() {
       });
       return `<text x="64" y="${y}" font-size="23" fill="#242424">${dayLabel}</text><text x="380" y="${y}" font-size="23" fill="#242424">${escapeXml(money(day.revenue))}</text><text x="690" y="${y}" font-size="23" fill="#242424">${escapeXml(money(day.expenses))}</text><text x="1136" y="${y}" text-anchor="end" font-size="23" font-weight="700" fill="${day.revenue - day.expenses < 0 ? "#be123c" : "#047857"}">${escapeXml(money(day.revenue - day.expenses))}</text>`;
     });
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#fff"/><rect width="100%" height="240" fill="#171717"/><text x="64" y="78" font-family="Arial,sans-serif" font-size="22" fill="#d8b1e5">BAKY DESSERT HOUSE</text><text x="64" y="137" font-family="Arial,sans-serif" font-size="42" font-weight="700" fill="#fff">Monthly financial report</text><text x="64" y="184" font-family="Arial,sans-serif" font-size="24" fill="#ddd">${escapeXml(monthName)}</text><text x="64" y="300" font-size="18" fill="#686868">REVENUE</text><text x="64" y="345" font-size="34" font-weight="700" fill="#171717">${escapeXml(money(monthlyStats.revenue))}</text><text x="440" y="300" font-size="18" fill="#686868">EXPENSES</text><text x="440" y="345" font-size="34" font-weight="700" fill="#171717">${escapeXml(money(monthlyStats.expenses))}</text><text x="790" y="300" font-size="18" fill="#686868">NET PROFIT</text><text x="790" y="345" font-size="34" font-weight="700" fill="#047857">${escapeXml(money(monthlyStats.revenue - monthlyStats.expenses))}</text><text x="64" y="430" font-size="26" font-weight="700" fill="#171717">Daily history</text><text x="64" y="490" font-size="16" fill="#686868">DATE</text><text x="380" y="490" font-size="16" fill="#686868">REVENUE</text><text x="690" y="490" font-size="16" fill="#686868">EXPENSES</text><text x="1136" y="490" text-anchor="end" font-size="16" fill="#686868">NET</text><line x1="64" y1="508" x2="1136" y2="508" stroke="#ddd"/>${historyRows.join("") || `<text x="64" y="560" font-size="22" fill="#686868">No sales or expenses recorded for this month.</text>`}</svg>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#fff"/><rect width="100%" height="240" fill="#171717"/><text x="64" y="78" font-family="Arial,sans-serif" font-size="22" fill="#d8b1e5">Baky Dessert House</text><text x="64" y="137" font-family="Arial,sans-serif" font-size="42" font-weight="700" fill="#fff">Monthly financial report</text><text x="64" y="184" font-family="Arial,sans-serif" font-size="24" fill="#ddd">${escapeXml(monthName)}</text><text x="64" y="300" font-size="18" fill="#686868">REVENUE</text><text x="64" y="345" font-size="34" font-weight="700" fill="#171717">${escapeXml(money(monthlyStats.revenue))}</text><text x="440" y="300" font-size="18" fill="#686868">EXPENSES</text><text x="440" y="345" font-size="34" font-weight="700" fill="#171717">${escapeXml(money(monthlyStats.expenses))}</text><text x="790" y="300" font-size="18" fill="#686868">NET PROFIT</text><text x="790" y="345" font-size="34" font-weight="700" fill="#047857">${escapeXml(money(monthlyStats.revenue - monthlyStats.expenses))}</text><text x="64" y="430" font-size="26" font-weight="700" fill="#171717">Daily history</text><text x="64" y="490" font-size="16" fill="#686868">DATE</text><text x="380" y="490" font-size="16" fill="#686868">REVENUE</text><text x="690" y="490" font-size="16" fill="#686868">EXPENSES</text><text x="1136" y="490" text-anchor="end" font-size="16" fill="#686868">NET</text><line x1="64" y1="508" x2="1136" y2="508" stroke="#ddd"/>${historyRows.join("") || `<text x="64" y="560" font-size="22" fill="#686868">No sales or expenses recorded for this month.</text>`}</svg>`;
     const image = new Image();
     const svgUrl = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml;charset=utf-8" }));
     try {
@@ -370,7 +370,7 @@ export function FinancialReportBoard() {
       )
       .join("");
     printWindow.document.write(
-      `<!doctype html><html><head><meta charset="utf-8"><title>Monthly Financial Report - ${escapeXml(monthName)}</title><style>@page{size:A4;margin:14mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#171717;font-size:12px;margin:0}header{padding:24px;background:#171717;color:white;border-radius:10px}header small{color:#d8b1e5;font-weight:bold}h1{margin:12px 0 4px;font-size:26px}header p{margin:0;color:#ddd}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0}.metric{background:#f5f5f5;padding:14px;border-radius:8px}.metric span{display:block;color:#686868;font-size:10px;text-transform:uppercase}.metric strong{display:block;font-size:20px;margin-top:6px}h2{font-size:17px;margin:24px 0 8px}table{width:100%;border-collapse:collapse}th{text-align:left;color:#686868;text-transform:uppercase;font-size:9px;padding:8px;border-bottom:1px solid #ddd}td{padding:9px 8px;border-bottom:1px solid #eee}.number{text-align:right} .note{margin-top:20px;color:#686868;font-size:10px}</style></head><body><header><small>BAKY DESSERT HOUSE</small><h1>Monthly financial report</h1><p>${escapeXml(monthName)}</p></header><div class="metrics"><div class="metric"><span>Revenue</span><strong>${escapeXml(money(monthlyStats.revenue))}</strong></div><div class="metric"><span>Expenses</span><strong>${escapeXml(money(monthlyStats.expenses))}</strong></div><div class="metric"><span>Net profit</span><strong>${escapeXml(money(monthlyStats.revenue - monthlyStats.expenses))}</strong></div></div><h2>Daily history</h2><table><thead><tr><th>Date</th><th class="number">Revenue</th><th class="number">Expenses</th><th class="number">Net</th></tr></thead><tbody>${rows || `<tr><td colspan="4">No sales or expenses recorded for this month.</td></tr>`}</tbody></table><p class="note">Revenue includes paid orders only. Open and unpaid orders are excluded.</p><script>window.addEventListener('load',()=>{window.focus();window.print()})</script></body></html>`,
+      `<!doctype html><html><head><meta charset="utf-8"><title>Monthly Financial Report - ${escapeXml(monthName)}</title><style>@page{size:A4;margin:14mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#171717;font-size:12px;margin:0}header{padding:24px;background:#171717;color:white;border-radius:10px}header small{color:#795789;font-weight:bold}h1{margin:12px 0 4px;font-size:26px}header p{margin:0;color:#ddd}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0}.metric{background:#f5f5f5;padding:14px;border-radius:8px}.metric span{display:block;color:#686868;font-size:10px;text-transform:uppercase}.metric strong{display:block;font-size:20px;margin-top:6px}h2{font-size:17px;margin:24px 0 8px}table{width:100%;border-collapse:collapse}th{text-align:left;color:#686868;text-transform:uppercase;font-size:9px;padding:8px;border-bottom:1px solid #ddd}td{padding:9px 8px;border-bottom:1px solid #eee}.number{text-align:right} .note{margin-top:20px;color:#686868;font-size:10px}</style></head><body><header><small>Baky Dessert House</small><h1>Monthly financial report</h1><p>${escapeXml(monthName)}</p></header><div class="metrics"><div class="metric"><span>Revenue</span><strong>${escapeXml(money(monthlyStats.revenue))}</strong></div><div class="metric"><span>Expenses</span><strong>${escapeXml(money(monthlyStats.expenses))}</strong></div><div class="metric"><span>Net profit</span><strong>${escapeXml(money(monthlyStats.revenue - monthlyStats.expenses))}</strong></div></div><h2>Daily history</h2><table><thead><tr><th>Date</th><th class="number">Revenue</th><th class="number">Expenses</th><th class="number">Net</th></tr></thead><tbody>${rows || `<tr><td colspan="4">No sales or expenses recorded for this month.</td></tr>`}</tbody></table><p class="note">Revenue includes paid orders only. Open and unpaid orders are excluded.</p><script>window.addEventListener('load',()=>{window.focus();window.print()})</script></body></html>`,
     );
     printWindow.document.close();
     printWindow.opener = null;
@@ -699,10 +699,13 @@ export function FinancialReportBoard() {
       >
         <div className="flex flex-col gap-4 border-b border-black/5 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#795789]">
-              Selected day details
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#795789]">
+              Baky Dessert House
             </p>
-            <h3 className="mt-1 text-lg font-bold">{selectedDateLabel}</h3>
+            <h3 className="mt-1 text-lg font-bold sm:text-xl">Daily Sales & Expense Report</h3>
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-baky-muted sm:text-sm">
+              <CalendarDays className="h-3.5 w-3.5" /> {selectedDateLabel}
+            </p>
           </div>
           <div className="daily-report-actions flex flex-wrap items-center gap-2">
             <label className="flex h-9 items-center gap-2 rounded-xl border border-black/10 bg-[#fafafa] px-3 text-xs">
@@ -742,10 +745,10 @@ export function FinancialReportBoard() {
         <div className="space-y-5 p-4 sm:p-5">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {[
-              { label: "Paid revenue", value: dailyReport.revenue, color: "text-black" },
+              { label: "Total sales", value: dailyReport.revenue, color: "text-black" },
               { label: "Expenses", value: dailyReport.expenseTotal, color: "text-rose-700" },
               {
-                label: "Net balance",
+                label: "Net profit",
                 value: dailyReport.net,
                 color: dailyReport.net < 0 ? "text-rose-700" : "text-emerald-700",
               },
@@ -756,32 +759,40 @@ export function FinancialReportBoard() {
                 count: true,
               },
             ].map((metric) => (
-              <div key={metric.label} className="rounded-xl bg-[#f8f8f8] p-3">
-                <p className="text-[9px] uppercase tracking-wider text-black/50">{metric.label}</p>
-                <p className={`mt-1 truncate text-base font-bold sm:text-lg ${metric.color}`}>
+              <div
+                key={metric.label}
+                className="rounded-xl border border-black/5 bg-[#fafafa] p-3 sm:p-4"
+              >
+                <p className="text-[9px] font-semibold uppercase tracking-wider text-black/50">
+                  {metric.label}
+                </p>
+                <p className={`mt-1 truncate text-base font-bold sm:text-xl ${metric.color}`}>
                   {metric.count ? metric.value : money(metric.value)}
                 </p>
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-3 gap-2 rounded-xl bg-[#fafafa] p-3 text-center">
-            <div>
-              <p className="text-[9px] text-black/50">Cash</p>
-              <p className="mt-1 truncate text-xs font-semibold sm:text-sm">
-                {money(dailyReport.payments.cash)}
-              </p>
-            </div>
-            <div className="border-x border-black/10">
-              <p className="text-[9px] text-black/50">GPay / UPI</p>
-              <p className="mt-1 truncate text-xs font-semibold sm:text-sm">
-                {money(dailyReport.payments.gpay)}
-              </p>
-            </div>
-            <div>
-              <p className="text-[9px] text-black/50">Online</p>
-              <p className="mt-1 truncate text-xs font-semibold sm:text-sm">
-                {money(dailyReport.payments.online)}
-              </p>
+          <div className="rounded-xl border border-black/5 bg-white p-3 sm:p-4">
+            <p className="mb-3 text-xs font-bold text-gray-900">Payment breakdown</p>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-[9px] font-medium text-black/50">Cash received</p>
+                <p className="mt-1 truncate text-sm font-bold sm:text-base">
+                  {money(dailyReport.payments.cash)}
+                </p>
+              </div>
+              <div className="border-x border-black/10">
+                <p className="text-[9px] font-medium text-black/50">GPay / UPI</p>
+                <p className="mt-1 truncate text-sm font-bold sm:text-base">
+                  {money(dailyReport.payments.gpay)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[9px] font-medium text-black/50">Online orders</p>
+                <p className="mt-1 truncate text-sm font-bold sm:text-base">
+                  {money(dailyReport.payments.online)}
+                </p>
+              </div>
             </div>
           </div>
           <div>
@@ -825,8 +836,8 @@ export function FinancialReportBoard() {
           <div>
             <div className="mb-3 flex items-baseline justify-between gap-2">
               <h4 className="text-sm font-bold">Expenses</h4>
-              <span className="text-[10px] text-black/50">
-                {dailyReport.expenses.length} entries
+              <span className="text-[10px] font-medium text-black/50">
+                {dailyReport.expenses.length} entries · {money(dailyReport.expenseTotal)}
               </span>
             </div>
             {dailyReport.expenses.length ? (
@@ -839,7 +850,7 @@ export function FinancialReportBoard() {
                     <span className="min-w-0">
                       <span className="block truncate font-medium">{expense.title}</span>
                       <span className="block truncate text-[10px] text-black/50">
-                        {expense.category}
+                        {expense.category} · Paid by {expense.paymentMethod || "Cash"}
                         {expense.notes ? ` · ${expense.notes}` : ""}
                       </span>
                     </span>
