@@ -27,6 +27,52 @@ const escapeXml = (value: string) =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 
+async function getReportLogoDataUrl() {
+  const response = await fetch("/baky-logo.png");
+  if (!response.ok) throw new Error("Could not load the Baky logo.");
+  const logo = await response.blob();
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Could not prepare the Baky logo for export."));
+    reader.readAsDataURL(logo);
+  });
+}
+
+function loadImage(source: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Could not load an image for the report."));
+    image.src = source;
+  });
+}
+
+function canvasToJpg(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) =>
+        blob ? resolve(blob) : reject(new Error("Could not create the JPG image in this browser.")),
+      "image/jpeg",
+      0.98,
+    );
+  });
+}
+
+function createReportCanvas(width: number, height: number) {
+  // Render at up to 3x so report text remains crisp, with a pixel cap for mobile memory.
+  const scale = Math.min(3, Math.sqrt(18_000_000 / (width * height)));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(width * scale);
+  canvas.height = Math.round(height * scale);
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Image export isn't available in this browser.");
+  context.setTransform(scale, 0, 0, scale, 0, 0);
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  return { canvas, context };
+}
+
 function orderPayment(order: Order): { cash: number; gpay: number; online: number; paid: number } {
   if (order.status !== "Past Orders" || order.paymentMethod === "Nil") {
     return { cash: 0, gpay: 0, online: 0, paid: 0 };
@@ -181,39 +227,36 @@ export function FinancialReportBoard() {
   }, [orders, expenses, year, selectedMonth]);
 
   const dailyReport = useMemo(() => {
-    const dailyOrders = orders.filter((order) => {
-      const date = recordDate(order.createdAt);
-      return date && localDateKey(date) === dailyDate && orderPayment(order).paid > 0;
-    });
+    const dailyOrders = orders
+      .filter((order) => {
+        const date = recordDate(order.createdAt);
+        return date && localDateKey(date) === dailyDate && orderPayment(order).paid > 0;
+      })
+      .sort(
+        (a, b) =>
+          (recordDate(a.createdAt)?.getTime() ?? 0) - (recordDate(b.createdAt)?.getTime() ?? 0),
+      );
     const dailyExpenses = expenses.filter((expense) => expense.date === dailyDate);
-    const items = new Map<string, { name: string; variant: string; qty: number; amount: number }>();
     const payments = { cash: 0, gpay: 0, online: 0 };
     for (const order of dailyOrders) {
-      for (const line of order.lines) {
-        const variant = line.variant ?? "";
-        const key = `${line.name}\u0000${variant}`;
-        const item = items.get(key) ?? { name: line.name, variant, qty: 0, amount: 0 };
-        item.qty += line.qty;
-        item.amount += line.price * line.qty;
-        items.set(key, item);
-      }
       const payment = orderPayment(order);
       payments.cash += payment.cash;
       payments.gpay += payment.gpay;
       payments.online += payment.online;
     }
-    const itemRows = [...items.values()].sort((a, b) => b.qty - a.qty);
     const revenue = dailyOrders.reduce((sum, order) => sum + orderPayment(order).paid, 0);
     const expenseTotal = dailyExpenses.reduce((sum, expense) => sum + expense.amount, 0);
     return {
       orders: dailyOrders,
       expenses: dailyExpenses,
-      items: itemRows,
       payments,
       revenue,
       expenseTotal,
       net: revenue - expenseTotal,
-      itemCount: itemRows.reduce((sum, item) => sum + item.qty, 0),
+      itemCount: dailyOrders.reduce(
+        (sum, order) => sum + order.lines.reduce((orderSum, line) => orderSum + line.qty, 0),
+        0,
+      ),
     };
   }, [orders, expenses, dailyDate]);
 
@@ -224,51 +267,214 @@ export function FinancialReportBoard() {
     year: "numeric",
   });
 
+  const downloadJpg = async (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.style.position = "fixed";
+    link.style.left = "-10000px";
+    link.style.top = "0";
+    document.body.appendChild(link);
+
+    try {
+      link.click();
+    } finally {
+      link.remove();
+      // Mobile browsers may finish starting the download after the click returns.
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    }
+  };
+
   const exportDailyJpg = async () => {
     const width = 1200;
     const padding = 64;
-    let rowY = 556;
-    const itemSvg = dailyReport.items.map((item) => {
-      rowY += 48;
-      return `<text x="${padding}" y="${rowY}" font-size="24" fill="#242424">${escapeXml(item.name)}${item.variant ? ` - ${escapeXml(item.variant)}` : ""}</text><text x="850" y="${rowY}" text-anchor="end" font-size="24" fill="#242424">${item.qty}</text><text x="1136" y="${rowY}" text-anchor="end" font-size="24" fill="#242424">${escapeXml(money(item.amount))}</text>`;
-    });
-    const expenseTop = Math.max(rowY + 112, 690);
-    const expenseSvg = dailyReport.expenses.map(
-      (expense, index) =>
-        `<text x="${padding}" y="${expenseTop + 52 + index * 45}" font-size="22" fill="#242424">${escapeXml(expense.title)} · ${escapeXml(expense.category)} · ${escapeXml(expense.paymentMethod || "Cash")}</text><text x="1136" y="${expenseTop + 52 + index * 45}" text-anchor="end" font-size="22" fill="#242424">${escapeXml(money(expense.amount))}</text>`,
-    );
+    let rowY = 590;
+    for (const order of dailyReport.orders) rowY += 42 + order.lines.length * 36;
+    const expenseTop = Math.max(rowY + 96, 690);
     const height = Math.max(880, expenseTop + dailyReport.expenses.length * 45 + 160);
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#ffffff"/><rect width="100%" height="250" fill="#f5f1f8"/><rect x="${padding}" y="48" width="6" height="128" rx="3" fill="#795789"/><text x="${padding + 24}" y="76" font-family="Arial,sans-serif" font-size="24" font-weight="700" fill="#171717">Baky Dessert House</text><text x="${padding + 24}" y="133" font-family="Arial,sans-serif" font-size="42" font-weight="700" fill="#171717">Daily sales report</text><text x="${padding + 24}" y="180" font-family="Arial,sans-serif" font-size="23" fill="#686868">${escapeXml(selectedDateLabel)}</text><rect x="64" y="270" width="330" height="112" rx="14" fill="#f8f8f8"/><rect x="418" y="270" width="330" height="112" rx="14" fill="#fff5f5"/><rect x="772" y="270" width="364" height="112" rx="14" fill="#f0f8f3"/><text x="88" y="310" font-family="Arial,sans-serif" font-size="17" fill="#686868">TOTAL SALES</text><text x="88" y="355" font-family="Arial,sans-serif" font-size="34" font-weight="700" fill="#171717">${escapeXml(money(dailyReport.revenue))}</text><text x="442" y="310" font-family="Arial,sans-serif" font-size="17" fill="#686868">TOTAL EXPENSES</text><text x="442" y="355" font-family="Arial,sans-serif" font-size="34" font-weight="700" fill="#be123c">${escapeXml(money(dailyReport.expenseTotal))}</text><text x="796" y="310" font-family="Arial,sans-serif" font-size="17" fill="#686868">NET PROFIT</text><text x="796" y="355" font-family="Arial,sans-serif" font-size="34" font-weight="700" fill="${dailyReport.net < 0 ? "#be123c" : "#047857"}">${escapeXml(money(dailyReport.net))}</text><text x="${padding}" y="430" font-family="Arial,sans-serif" font-size="20" font-weight="700" fill="#242424">Payment breakdown</text><text x="${padding}" y="470" font-family="Arial,sans-serif" font-size="18" fill="#686868">Cash received</text><text x="340" y="470" text-anchor="end" font-family="Arial,sans-serif" font-size="20" font-weight="700" fill="#171717">${escapeXml(money(dailyReport.payments.cash))}</text><text x="440" y="470" font-family="Arial,sans-serif" font-size="18" fill="#686868">GPay / UPI</text><text x="748" y="470" text-anchor="end" font-family="Arial,sans-serif" font-size="20" font-weight="700" fill="#171717">${escapeXml(money(dailyReport.payments.gpay))}</text><text x="790" y="470" font-family="Arial,sans-serif" font-size="18" fill="#686868">Online orders</text><text x="1136" y="470" text-anchor="end" font-family="Arial,sans-serif" font-size="20" font-weight="700" fill="#171717">${escapeXml(money(dailyReport.payments.online))}</text><text x="${padding}" y="530" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#171717">Items sold (${dailyReport.itemCount} units)</text><text x="${padding}" y="568" font-family="Arial,sans-serif" font-size="17" fill="#686868">ITEM</text><text x="850" y="568" text-anchor="end" font-family="Arial,sans-serif" font-size="17" fill="#686868">QTY</text><text x="1136" y="568" text-anchor="end" font-family="Arial,sans-serif" font-size="17" fill="#686868">SALES</text><line x1="${padding}" y1="582" x2="1136" y2="582" stroke="#dddddd"/>${itemSvg.length ? itemSvg.join("") : `<text x="${padding}" y="630" font-size="22" fill="#686868">No paid items recorded for this day.</text>`}<text x="${padding}" y="${expenseTop}" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#171717">Expenses (${dailyReport.expenses.length})</text><line x1="${padding}" y1="${expenseTop + 12}" x2="1136" y2="${expenseTop + 12}" stroke="#dddddd"/>${expenseSvg.length ? expenseSvg.join("") : `<text x="${padding}" y="${expenseTop + 52}" font-size="22" fill="#686868">No expenses recorded for this day.</text>`}</svg>`;
-    const image = new Image();
-    const svgUrl = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml;charset=utf-8" }));
-    try {
-      await new Promise<void>((resolve, reject) => {
-        image.onload = () => resolve();
-        image.onerror = reject;
-        image.src = svgUrl;
-      });
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const context = canvas.getContext("2d");
-      if (!context) throw new Error("Image export isn't available in this browser.");
-      context.drawImage(image, 0, 0);
-      const blob = await new Promise<Blob>((resolve, reject) =>
-        canvas.toBlob(
-          (result) => (result ? resolve(result) : reject(new Error("Could not create JPG image."))),
-          "image/jpeg",
-          0.95,
-        ),
-      );
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `baky-daily-sales-${dailyDate}.jpg`;
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } finally {
-      URL.revokeObjectURL(svgUrl);
+    const { canvas, context } = createReportCanvas(width, height);
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, width, height);
+    context.fillStyle = "#f5f1f8";
+    context.fillRect(0, 0, width, 250);
+    context.fillStyle = "#795789";
+    context.fillRect(padding, 48, 6, 128);
+    const logo = await loadImage(await getReportLogoDataUrl());
+    context.drawImage(logo, padding + 20, 52, 92, 92);
+    context.textBaseline = "alphabetic";
+    context.fillStyle = "#171717";
+    context.font = "700 24px Arial, sans-serif";
+    context.fillText("Baky Dessert House", padding + 128, 76);
+    context.font = "700 42px Arial, sans-serif";
+    context.fillText("Daily sales report", padding + 128, 133);
+    context.fillStyle = "#686868";
+    context.font = "23px Arial, sans-serif";
+    context.fillText(
+      `${selectedDateLabel} · ${dailyReport.orders.length} paid orders`,
+      padding + 128,
+      180,
+    );
+
+    const metricCards = [
+      {
+        x: 64,
+        width: 330,
+        fill: "#f8f8f8",
+        label: "TOTAL SALES",
+        value: dailyReport.revenue,
+        color: "#171717",
+      },
+      {
+        x: 418,
+        width: 330,
+        fill: "#fff5f5",
+        label: "TOTAL EXPENSES",
+        value: dailyReport.expenseTotal,
+        color: "#be123c",
+      },
+      {
+        x: 772,
+        width: 364,
+        fill: "#f0f8f3",
+        label: "NET PROFIT",
+        value: dailyReport.net,
+        color: dailyReport.net < 0 ? "#be123c" : "#047857",
+      },
+    ];
+    for (const card of metricCards) {
+      context.fillStyle = card.fill;
+      context.fillRect(card.x, 270, card.width, 112);
+      context.fillStyle = "#686868";
+      context.font = "17px Arial, sans-serif";
+      context.fillText(card.label, card.x + 24, 310);
+      context.fillStyle = card.color;
+      context.font = "700 34px Arial, sans-serif";
+      context.fillText(money(card.value), card.x + 24, 355);
     }
+
+    context.fillStyle = "#242424";
+    context.font = "700 20px Arial, sans-serif";
+    context.fillText("Payment breakdown", padding, 430);
+    const paymentColumns = [
+      { x: padding, amountX: 340, label: "Cash received", value: dailyReport.payments.cash },
+      { x: 440, amountX: 748, label: "GPay / UPI", value: dailyReport.payments.gpay },
+      { x: 790, amountX: 1136, label: "Online orders", value: dailyReport.payments.online },
+    ];
+    for (const payment of paymentColumns) {
+      context.textAlign = "left";
+      context.fillStyle = "#686868";
+      context.font = "18px Arial, sans-serif";
+      context.fillText(payment.label, payment.x, 470);
+      context.textAlign = "right";
+      context.fillStyle = "#171717";
+      context.font = "700 20px Arial, sans-serif";
+      context.fillText(money(payment.value), payment.amountX, 470);
+    }
+    context.textAlign = "left";
+    context.fillStyle = "#171717";
+    context.font = "700 28px Arial, sans-serif";
+    context.fillText(
+      `Orders & items (${dailyReport.orders.length} orders · ${dailyReport.itemCount} units)`,
+      padding,
+      530,
+    );
+    context.fillStyle = "#686868";
+    context.font = "17px Arial, sans-serif";
+    context.fillText("ITEM", padding, 568);
+    context.textAlign = "right";
+    context.fillText("QTY", 850, 568);
+    context.fillText("SALES", 1136, 568);
+    context.strokeStyle = "#dddddd";
+    context.beginPath();
+    context.moveTo(padding, 582);
+    context.lineTo(1136, 582);
+    context.stroke();
+
+    rowY = 590;
+    if (dailyReport.orders.length) {
+      for (const order of dailyReport.orders) {
+        rowY += 42;
+        context.fillStyle = "#f5f1f8";
+        context.fillRect(padding, rowY - 26, 1072, 38);
+        context.textAlign = "left";
+        context.fillStyle = "#242424";
+        context.font = "700 21px Arial, sans-serif";
+        context.fillText(`Order ${order.id}`, padding + 16, rowY, 570);
+        const time =
+          recordDate(order.createdAt)?.toLocaleTimeString("en-IN", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }) ?? "";
+        const takeaway = order.paymentDetails?.match(/Takeaway charges:\s*₹?([\d,.]+)/i)?.[1];
+        const orderMeta = [
+          time,
+          order.paymentMethod || "Paid",
+          takeaway ? `Takeaway ₹${takeaway}` : "",
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        context.textAlign = "right";
+        context.fillStyle = "#686868";
+        context.font = "17px Arial, sans-serif";
+        context.fillText(orderMeta, 710, rowY);
+        context.fillStyle = "#171717";
+        context.font = "700 21px Arial, sans-serif";
+        context.fillText(money(order.total), 1120, rowY);
+        for (const line of order.lines) {
+          rowY += 36;
+          context.textAlign = "left";
+          context.fillStyle = "#242424";
+          context.font = "19px Arial, sans-serif";
+          context.fillText(
+            `${line.name}${line.variant ? ` · ${line.variant}` : ""}`,
+            padding + 24,
+            rowY,
+            730,
+          );
+          context.textAlign = "right";
+          context.fillText(String(line.qty), 850, rowY);
+          context.fillText(money(line.price * line.qty), 1120, rowY);
+        }
+      }
+    } else {
+      context.fillStyle = "#686868";
+      context.font = "22px Arial, sans-serif";
+      context.fillText("No paid orders recorded for this day.", padding, 630);
+    }
+
+    context.textAlign = "left";
+    context.fillStyle = "#171717";
+    context.font = "700 28px Arial, sans-serif";
+    context.fillText(`Expenses (${dailyReport.expenses.length})`, padding, expenseTop);
+    context.strokeStyle = "#dddddd";
+    context.beginPath();
+    context.moveTo(padding, expenseTop + 12);
+    context.lineTo(1136, expenseTop + 12);
+    context.stroke();
+    if (dailyReport.expenses.length) {
+      dailyReport.expenses.forEach((expense, index) => {
+        const y = expenseTop + 52 + index * 45;
+        context.textAlign = "left";
+        context.fillStyle = "#242424";
+        context.font = "22px Arial, sans-serif";
+        context.fillText(
+          `${expense.title} · ${expense.category} · Paid by ${expense.paymentMethod || "Cash"}${expense.notes ? ` · ${expense.notes}` : ""}`,
+          padding,
+          y,
+          900,
+        );
+        context.textAlign = "right";
+        context.fillText(money(expense.amount), 1136, y);
+      });
+    } else {
+      context.fillStyle = "#686868";
+      context.font = "22px Arial, sans-serif";
+      context.fillText("No expenses recorded for this day.", padding, expenseTop + 52);
+    }
+
+    await downloadJpg(await canvasToJpg(canvas), `baky-daily-sales-${dailyDate}.jpg`);
   };
 
   const printDailyPdf = () => {
@@ -277,11 +483,25 @@ export function FinancialReportBoard() {
       window.alert("Allow pop-ups to print or save this report as a PDF.");
       return;
     }
-    const items = dailyReport.items
-      .map(
-        (item) =>
-          `<tr><td>${escapeXml(item.name)}${item.variant ? `<small>${escapeXml(item.variant)}</small>` : ""}</td><td class="number">${item.qty}</td><td class="number">${escapeXml(money(item.amount))}</td></tr>`,
-      )
+    const orderRows = dailyReport.orders
+      .map((order) => {
+        const time = recordDate(order.createdAt)?.toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        const takeaway = order.paymentDetails?.match(/Takeaway charges:\s*₹?([\d,.]+)/i)?.[1];
+        const lines = order.lines
+          .map(
+            (line) =>
+              `<tr><td>${escapeXml(line.name)}${line.variant ? `<small>${escapeXml(line.variant)}</small>` : ""}</td><td class="number">${line.qty}</td><td class="number">${escapeXml(money(line.price * line.qty))}</td></tr>`,
+          )
+          .join("");
+        const meta = [time, order.paymentMethod || "Paid", takeaway ? `Takeaway ₹${takeaway}` : ""]
+          .filter(Boolean)
+          .map((value) => escapeXml(value))
+          .join(" · ");
+        return `<tr class="order-heading"><td colspan="3"><div><strong>Order ${escapeXml(order.id)}</strong><span>${meta}</span><b>${escapeXml(money(order.total))}</b></div></td></tr>${lines}`;
+      })
       .join("");
     const expenseRows = dailyReport.expenses
       .map(
@@ -291,8 +511,8 @@ export function FinancialReportBoard() {
       .join("");
     printWindow.document
       .write(`<!doctype html><html><head><meta charset="utf-8"><title>Daily Sales Report - ${escapeXml(dailyDate)}</title><style>
-      @page{size:A4;margin:14mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#171717;margin:0;font-size:12px}header{background:#f5f1f8;color:#171717;padding:24px 28px;border-radius:12px;border-left:5px solid #795789}header small{color:#795789;letter-spacing:1px;font-weight:bold}h1{font-size:27px;margin:14px 0 6px}header p{color:#686868;margin:0}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0}.metric{background:#f6f6f6;border-radius:9px;padding:14px}.metric span{display:block;color:#686868;font-size:10px;text-transform:uppercase}.metric strong{display:block;margin-top:7px;font-size:20px}.payments{background:#fafafa;border-radius:8px;padding:12px;display:flex;justify-content:space-between;margin-bottom:22px}h2{font-size:17px;margin:20px 0 8px}table{width:100%;border-collapse:collapse}th{text-align:left;color:#686868;text-transform:uppercase;font-size:9px;letter-spacing:.5px;padding:8px;border-bottom:1px solid #ddd}td{padding:9px 8px;border-bottom:1px solid #eee;vertical-align:top}.number{text-align:right;white-space:nowrap}small{display:block;color:#686868;margin-top:3px}.note{color:#686868;font-size:10px;margin-top:18px}@media print{header,.metric,.payments{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
-    </style></head><body><header><small>Baky Dessert House</small><h1>Daily sales report</h1><p>${escapeXml(selectedDateLabel)} · ${dailyReport.orders.length} paid orders</p></header><div class="metrics"><div class="metric"><span>Total sales</span><strong>${escapeXml(money(dailyReport.revenue))}</strong></div><div class="metric"><span>Total expenses</span><strong>${escapeXml(money(dailyReport.expenseTotal))}</strong></div><div class="metric"><span>Net profit</span><strong>${escapeXml(money(dailyReport.net))}</strong></div></div><div class="payments"><span>Cash received <b>${escapeXml(money(dailyReport.payments.cash))}</b></span><span>GPay / UPI <b>${escapeXml(money(dailyReport.payments.gpay))}</b></span><span>Online orders <b>${escapeXml(money(dailyReport.payments.online))}</b></span></div><h2>Items sold (${dailyReport.itemCount} units)</h2><table><thead><tr><th>Item</th><th class="number">Qty</th><th class="number">Sales</th></tr></thead><tbody>${items || `<tr><td colspan="3">No paid items recorded for this day.</td></tr>`}</tbody></table><h2>Expenses (${dailyReport.expenses.length}) · ${escapeXml(money(dailyReport.expenseTotal))}</h2><table><thead><tr><th>Expense</th><th class="number">Amount</th></tr></thead><tbody>${expenseRows || `<tr><td colspan="2">No expenses recorded for this day.</td></tr>`}</tbody></table><p class="note">Sales include orders marked paid on this order date. Open and unpaid orders are excluded.</p><script>window.addEventListener('load',()=>{window.focus();window.print()})</script></body></html>`);
+      @page{size:A4;margin:14mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#171717;margin:0;font-size:12px}header{display:flex;align-items:center;gap:16px;background:#f5f1f8;color:#171717;padding:20px 24px;border-radius:12px;border-left:5px solid #795789}header img{width:64px;height:64px;object-fit:contain;flex:0 0 auto}header small{color:#795789;letter-spacing:1px;font-weight:bold}h1{font-size:27px;margin:8px 0 6px}header p{color:#686868;margin:0}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0}.metric{background:#f6f6f6;border-radius:9px;padding:14px}.metric span{display:block;color:#686868;font-size:10px;text-transform:uppercase}.metric strong{display:block;margin-top:7px;font-size:20px}.payments{background:#fafafa;border-radius:8px;padding:12px;display:flex;justify-content:space-between;margin-bottom:22px}h2{font-size:17px;margin:20px 0 8px}table{width:100%;border-collapse:collapse}th{text-align:left;color:#686868;text-transform:uppercase;font-size:9px;letter-spacing:.5px;padding:8px;border-bottom:1px solid #ddd}td{padding:9px 8px;border-bottom:1px solid #eee;vertical-align:top}.number{text-align:right;white-space:nowrap}.order-heading td{background:#f5f1f8;border-top:1px solid #e8deef}.order-heading div{display:flex;align-items:center;justify-content:space-between;gap:8px}.order-heading span{color:#686868;font-size:10px}small{display:block;color:#686868;margin-top:3px}.note{color:#686868;font-size:10px;margin-top:18px}@media print{header,.metric,.payments,.order-heading td{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+    </style></head><body><header><img src="/baky-logo.png" alt="Baky logo"><div><small>Baky Dessert House</small><h1>Daily sales report</h1><p>${escapeXml(selectedDateLabel)} · ${dailyReport.orders.length} paid orders</p></div></header><div class="metrics"><div class="metric"><span>Total sales</span><strong>${escapeXml(money(dailyReport.revenue))}</strong></div><div class="metric"><span>Total expenses</span><strong>${escapeXml(money(dailyReport.expenseTotal))}</strong></div><div class="metric"><span>Net profit</span><strong>${escapeXml(money(dailyReport.net))}</strong></div></div><div class="payments"><span>Cash received <b>${escapeXml(money(dailyReport.payments.cash))}</b></span><span>GPay / UPI <b>${escapeXml(money(dailyReport.payments.gpay))}</b></span><span>Online orders <b>${escapeXml(money(dailyReport.payments.online))}</b></span></div><h2>Orders & items (${dailyReport.orders.length} orders · ${dailyReport.itemCount} units)</h2><table><thead><tr><th>Item</th><th class="number">Qty</th><th class="number">Sales</th></tr></thead><tbody>${orderRows || `<tr><td colspan="3">No paid orders recorded for this day.</td></tr>`}</tbody></table><h2>Expenses (${dailyReport.expenses.length}) · ${escapeXml(money(dailyReport.expenseTotal))}</h2><table><thead><tr><th>Expense</th><th class="number">Amount</th></tr></thead><tbody>${expenseRows || `<tr><td colspan="2">No expenses recorded for this day.</td></tr>`}</tbody></table><p class="note">Sales include orders marked paid on this order date. Open and unpaid orders are excluded.</p><script>window.addEventListener('load',()=>{window.focus();window.print()})</script></body></html>`);
     printWindow.document.close();
     printWindow.opener = null;
   };
@@ -312,45 +532,78 @@ export function FinancialReportBoard() {
       month: "long",
       year: "numeric",
     });
-    const historyRows = history.map(([date, day], index) => {
-      const y = 650 + index * rowHeight;
-      const dayLabel = new Date(`${date}T12:00:00`).toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-      });
-      return `<text x="64" y="${y}" font-size="23" fill="#242424">${dayLabel}</text><text x="380" y="${y}" font-size="23" fill="#242424">${escapeXml(money(day.revenue))}</text><text x="690" y="${y}" font-size="23" fill="#242424">${escapeXml(money(day.expenses))}</text><text x="1136" y="${y}" text-anchor="end" font-size="23" font-weight="700" fill="${day.revenue - day.expenses < 0 ? "#be123c" : "#047857"}">${escapeXml(money(day.revenue - day.expenses))}</text>`;
-    });
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#fff"/><rect width="100%" height="240" fill="#171717"/><text x="64" y="78" font-family="Arial,sans-serif" font-size="22" fill="#d8b1e5">Baky Dessert House</text><text x="64" y="137" font-family="Arial,sans-serif" font-size="42" font-weight="700" fill="#fff">Monthly financial report</text><text x="64" y="184" font-family="Arial,sans-serif" font-size="24" fill="#ddd">${escapeXml(monthName)}</text><text x="64" y="300" font-size="18" fill="#686868">REVENUE</text><text x="64" y="345" font-size="34" font-weight="700" fill="#171717">${escapeXml(money(monthlyStats.revenue))}</text><text x="440" y="300" font-size="18" fill="#686868">EXPENSES</text><text x="440" y="345" font-size="34" font-weight="700" fill="#171717">${escapeXml(money(monthlyStats.expenses))}</text><text x="790" y="300" font-size="18" fill="#686868">NET PROFIT</text><text x="790" y="345" font-size="34" font-weight="700" fill="#047857">${escapeXml(money(monthlyStats.revenue - monthlyStats.expenses))}</text><text x="64" y="430" font-size="26" font-weight="700" fill="#171717">Daily history</text><text x="64" y="490" font-size="16" fill="#686868">DATE</text><text x="380" y="490" font-size="16" fill="#686868">REVENUE</text><text x="690" y="490" font-size="16" fill="#686868">EXPENSES</text><text x="1136" y="490" text-anchor="end" font-size="16" fill="#686868">NET</text><line x1="64" y1="508" x2="1136" y2="508" stroke="#ddd"/>${historyRows.join("") || `<text x="64" y="560" font-size="22" fill="#686868">No sales or expenses recorded for this month.</text>`}</svg>`;
-    const image = new Image();
-    const svgUrl = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml;charset=utf-8" }));
-    try {
-      await new Promise<void>((resolve, reject) => {
-        image.onload = () => resolve();
-        image.onerror = reject;
-        image.src = svgUrl;
-      });
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const context = canvas.getContext("2d");
-      if (!context) throw new Error("Image export isn't available in this browser.");
-      context.drawImage(image, 0, 0);
-      const blob = await new Promise<Blob>((resolve, reject) =>
-        canvas.toBlob(
-          (result) => (result ? resolve(result) : reject(new Error("Could not create JPG image."))),
-          "image/jpeg",
-          0.95,
-        ),
-      );
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `baky-monthly-report-${year}-${String(selectedMonth + 1).padStart(2, "0")}.jpg`;
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } finally {
-      URL.revokeObjectURL(svgUrl);
+    const { canvas, context } = createReportCanvas(width, height);
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, width, height);
+    context.fillStyle = "#171717";
+    context.fillRect(0, 0, width, 240);
+    context.fillStyle = "#d8b1e5";
+    context.font = "22px Arial, sans-serif";
+    context.fillText("Baky Dessert House", 64, 78);
+    context.fillStyle = "#ffffff";
+    context.font = "700 42px Arial, sans-serif";
+    context.fillText("Monthly financial report", 64, 137);
+    context.fillStyle = "#dddddd";
+    context.font = "24px Arial, sans-serif";
+    context.fillText(monthName, 64, 184);
+
+    const metrics = [
+      { x: 64, label: "REVENUE", value: monthlyStats.revenue },
+      { x: 440, label: "EXPENSES", value: monthlyStats.expenses },
+      { x: 790, label: "NET PROFIT", value: monthlyStats.revenue - monthlyStats.expenses },
+    ];
+    for (const metric of metrics) {
+      context.fillStyle = "#686868";
+      context.font = "18px Arial, sans-serif";
+      context.fillText(metric.label, metric.x, 300);
+      context.fillStyle = "#171717";
+      context.font = "700 34px Arial, sans-serif";
+      context.fillText(money(metric.value), metric.x, 345);
     }
+    context.fillStyle = "#171717";
+    context.font = "700 26px Arial, sans-serif";
+    context.fillText("Daily history", 64, 430);
+    context.fillStyle = "#686868";
+    context.font = "16px Arial, sans-serif";
+    context.fillText("DATE", 64, 490);
+    context.fillText("REVENUE", 380, 490);
+    context.fillText("EXPENSES", 690, 490);
+    context.textAlign = "right";
+    context.fillText("NET", 1136, 490);
+    context.strokeStyle = "#dddddd";
+    context.beginPath();
+    context.moveTo(64, 508);
+    context.lineTo(1136, 508);
+    context.stroke();
+    if (history.length) {
+      history.forEach(([date, day], index) => {
+        const y = 650 + index * rowHeight;
+        const dayLabel = new Date(`${date}T12:00:00`).toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "short",
+        });
+        context.textAlign = "left";
+        context.fillStyle = "#242424";
+        context.font = "23px Arial, sans-serif";
+        context.fillText(dayLabel, 64, y);
+        context.fillText(money(day.revenue), 380, y);
+        context.fillText(money(day.expenses), 690, y);
+        context.textAlign = "right";
+        context.fillStyle = day.revenue - day.expenses < 0 ? "#be123c" : "#047857";
+        context.font = "700 23px Arial, sans-serif";
+        context.fillText(money(day.revenue - day.expenses), 1136, y);
+      });
+    } else {
+      context.textAlign = "left";
+      context.fillStyle = "#686868";
+      context.font = "22px Arial, sans-serif";
+      context.fillText("No sales or expenses recorded for this month.", 64, 560);
+    }
+    await downloadJpg(
+      await canvasToJpg(canvas),
+      `baky-monthly-report-${year}-${String(selectedMonth + 1).padStart(2, "0")}.jpg`,
+    );
   };
 
   const printMonthlyPdf = () => {
@@ -551,7 +804,12 @@ export function FinancialReportBoard() {
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() =>
-                void exportMonthlyJpg().catch(() => toast.error("Could not export the JPG report."))
+                void exportMonthlyJpg().catch((error: unknown) => {
+                  console.error("Monthly JPG export failed", error);
+                  toast.error(
+                    error instanceof Error ? error.message : "Could not export the JPG report.",
+                  );
+                })
               }
               className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/10 px-2.5 text-[10px] font-medium text-black/50 hover:bg-black/5"
             >
@@ -698,14 +956,21 @@ export function FinancialReportBoard() {
         className="overflow-hidden rounded-[24px] border border-black/5 bg-white shadow-sm"
       >
         <div className="flex flex-col gap-4 border-b border-black/5 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#795789]">
-              Baky Dessert House
-            </p>
-            <h3 className="mt-1 text-lg font-bold sm:text-xl">Daily Sales & Expense Report</h3>
-            <p className="mt-1 flex items-center gap-1.5 text-xs text-baky-muted sm:text-sm">
-              <CalendarDays className="h-3.5 w-3.5" /> {selectedDateLabel}
-            </p>
+          <div className="flex min-w-0 items-center gap-3">
+            <img
+              src="/baky-logo.png"
+              alt="Baky Dessert House logo"
+              className="h-11 w-11 shrink-0 object-contain sm:h-14 sm:w-14"
+            />
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#795789]">
+                Baky Dessert House
+              </p>
+              <h3 className="mt-1 text-lg font-bold sm:text-xl">Daily Sales & Expense Report</h3>
+              <p className="mt-1 flex items-center gap-1.5 text-xs text-baky-muted sm:text-sm">
+                <CalendarDays className="h-3.5 w-3.5" /> {selectedDateLabel}
+              </p>
+            </div>
           </div>
           <div className="daily-report-actions flex flex-wrap items-center gap-2">
             <label className="flex h-9 items-center gap-2 rounded-xl border border-black/10 bg-[#fafafa] px-3 text-xs">
@@ -728,7 +993,12 @@ export function FinancialReportBoard() {
             </label>
             <button
               onClick={() =>
-                void exportDailyJpg().catch(() => toast.error("Could not export the JPG report."))
+                void exportDailyJpg().catch((error: unknown) => {
+                  console.error("Daily JPG export failed", error);
+                  toast.error(
+                    error instanceof Error ? error.message : "Could not export the JPG report.",
+                  );
+                })
               }
               className="inline-flex h-9 items-center gap-2 rounded-xl border border-black/10 px-3 text-xs font-semibold text-black/50 hover:bg-black/5"
             >
@@ -797,39 +1067,76 @@ export function FinancialReportBoard() {
           </div>
           <div>
             <div className="mb-3 flex items-baseline justify-between gap-2">
-              <h4 className="text-sm font-bold">Items sold</h4>
+              <h4 className="text-sm font-bold">Orders & items sold</h4>
               <span className="text-[10px] text-black/50">
-                {dailyReport.itemCount} units · {dailyReport.items.length} items
+                {dailyReport.orders.length} orders · {dailyReport.itemCount} units
               </span>
             </div>
-            <div className="grid grid-cols-[minmax(0,1fr)_3rem_5.5rem] gap-2 border-b border-black/10 px-2 pb-2 text-[9px] font-semibold uppercase tracking-wider text-black/50 sm:grid-cols-[minmax(0,1fr)_4rem_7rem]">
-              <span>Item</span>
-              <span className="text-right">Qty</span>
-              <span className="text-right">Sales</span>
-            </div>
-            {dailyReport.items.length ? (
-              <div className="divide-y divide-black/5">
-                {dailyReport.items.map((item) => (
-                  <div
-                    key={`${item.name}-${item.variant}`}
-                    className="grid grid-cols-[minmax(0,1fr)_3rem_5.5rem] gap-2 px-2 py-2.5 text-xs sm:grid-cols-[minmax(0,1fr)_4rem_7rem]"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate font-medium">{item.name}</span>
-                      {item.variant && (
-                        <span className="block truncate text-[10px] text-black/50">
-                          {item.variant}
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-right">{item.qty}</span>
-                    <span className="text-right font-semibold">{money(item.amount)}</span>
-                  </div>
-                ))}
+            {dailyReport.orders.length ? (
+              <div className="space-y-3">
+                {dailyReport.orders.map((order) => {
+                  const orderTime = recordDate(order.createdAt)?.toLocaleTimeString("en-IN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                  const takeaway = order.paymentDetails?.match(
+                    /Takeaway charges:\s*₹?([\d,.]+)/i,
+                  )?.[1];
+                  return (
+                    <article
+                      key={order.id}
+                      className="overflow-hidden rounded-xl border border-black/5 bg-white"
+                    >
+                      <div className="flex flex-col gap-2 bg-[#f5f1f8] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-gray-900">Order {order.id}</p>
+                          <p className="mt-0.5 truncate text-[10px] text-baky-muted">
+                            {[
+                              orderTime,
+                              order.paymentMethod || "Paid",
+                              takeaway ? `Takeaway ₹${takeaway}` : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
+                        </div>
+                        <p className="shrink-0 text-sm font-bold text-gray-900">
+                          {money(order.total)}
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-[minmax(0,1fr)_2.5rem_5.5rem] gap-2 border-b border-black/5 px-3 py-2 text-[9px] font-semibold uppercase tracking-wider text-black/50 sm:grid-cols-[minmax(0,1fr)_4rem_7rem] sm:px-4">
+                        <span>Item</span>
+                        <span className="text-right">Qty</span>
+                        <span className="text-right">Amount</span>
+                      </div>
+                      <div className="divide-y divide-black/5">
+                        {order.lines.map((line, index) => (
+                          <div
+                            key={`${order.id}-${line.name}-${line.variant ?? ""}-${index}`}
+                            className="grid grid-cols-[minmax(0,1fr)_2.5rem_5.5rem] gap-2 px-3 py-2.5 text-xs sm:grid-cols-[minmax(0,1fr)_4rem_7rem] sm:px-4"
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate font-medium">{line.name}</span>
+                              {line.variant && (
+                                <span className="block truncate text-[10px] text-black/50">
+                                  {line.variant}
+                                </span>
+                              )}
+                            </span>
+                            <span className="text-right">{line.qty}</span>
+                            <span className="text-right font-semibold">
+                              {money(line.price * line.qty)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             ) : (
               <p className="py-5 text-center text-xs text-black/50">
-                No paid items recorded for this day.
+                No paid orders recorded for this day.
               </p>
             )}
           </div>
