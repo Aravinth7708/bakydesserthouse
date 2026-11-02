@@ -13,6 +13,7 @@ import {
   UserCheck,
   ShieldCheck,
   ChartNoAxesCombined,
+  CalendarCheck2,
 } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -23,6 +24,7 @@ const allLinkItems = [
   { label: "Dashboard", icon: LayoutGrid, to: "/", exact: true, adminOnly: true },
   { label: "POS", icon: MonitorSmartphone, to: "/pos", exact: false, adminOnly: false },
   { label: "Orders", icon: ShoppingCart, to: "/orders", exact: false, adminOnly: false },
+  { label: "Attendance", icon: CalendarCheck2, to: "/attendance", exact: false, adminOnly: false },
   { label: "Menu", icon: UtensilsCrossed, to: "/menu", exact: false, adminOnly: true },
   { label: "Inventory", icon: FileCheck, to: "/inventory", exact: false, adminOnly: true },
   { label: "Expenses", icon: Receipt, to: "/expenses", exact: false, adminOnly: true },

@@ -30,7 +30,7 @@ export function Topbar({ title = "Dashboard" }: { title?: string }) {
             className={`flex h-9 items-center gap-1.5 rounded-[10px] px-3 text-xs font-bold transition-all sm:text-sm lg:h-10 lg:rounded-xl ${
               isStaff
                 ? "bg-blue-100 text-blue-900 border border-blue-200 hover:bg-blue-200"
-                : "bg-emerald-100 text-emerald-900 border border-emerald-200 hover:bg-emerald-200"
+                : "h-9 w-9 justify-center bg-transparent p-0 text-emerald-900 hover:bg-transparent lg:h-10 lg:w-10"
             }`}
           >
             {isStaff ? (
@@ -41,10 +41,7 @@ export function Topbar({ title = "Dashboard" }: { title?: string }) {
                 </span>
               </>
             ) : (
-              <>
-                <ShieldCheck className="h-4 w-4 text-emerald-700 shrink-0" />
-                <span>Admin</span>
-              </>
+              <ShieldCheck className="h-4 w-4 text-emerald-700 shrink-0" />
             )}
           </button>
 
