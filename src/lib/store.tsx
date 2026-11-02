@@ -425,9 +425,10 @@ const LOCAL_INV_KEY = "baky_inventory_v1";
 const LOCAL_ORDER_KEY = "baky_orders_v1";
 const LOCAL_EXPENSE_KEY = "baky_expenses_v1";
 const LOCAL_STAFF_KEY = "baky_staff_v1";
-const LOCAL_USER_KEY = "baky_user_v1";
+const LOCAL_USER_KEY = "baky_user_v2";
 const LOCAL_OUTLET_KEY = "baky_outlet_v1";
 const SHOP_RESTORE_KEY = "baky_shop_restored_v4";
+const ADMIN_PASSWORD = "Baky@1503";
 
 const initialStaff: StaffMember[] = [
   {
@@ -1415,25 +1416,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return false;
       },
       loginAsAdmin: (pass) => {
-        if (pass.trim() === "1234" || pass.trim() === "admin") {
+        if (pass === ADMIN_PASSWORD) {
           const userState: CurrentUser = { role: "Admin", isAuthenticated: true };
           setCurrentUser(userState);
           setLocal(LOCAL_USER_KEY, userState);
           toast.success("Welcome Admin! Full Dashboard access granted.");
           return true;
         }
-        toast.error("Incorrect Admin Password (default is 1234)");
+        toast.error("Incorrect Admin Password");
         return false;
       },
       switchToAdmin: (pass) => {
-        if (pass.trim() === "1234" || pass.trim() === "admin") {
+        if (pass === ADMIN_PASSWORD) {
           const userState: CurrentUser = { role: "Admin", isAuthenticated: true };
           setCurrentUser(userState);
           setLocal(LOCAL_USER_KEY, userState);
           toast.success("Switched to Admin Mode (Full Access)");
           return true;
         }
-        toast.error("Incorrect Admin Password (default is 1234)");
+        toast.error("Incorrect Admin Password");
         return false;
       },
       logout: () => {

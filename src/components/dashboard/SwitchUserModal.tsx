@@ -13,7 +13,7 @@ export function SwitchUserModal({ isOpen, onClose }: SwitchUserModalProps) {
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<"StaffLogin" | "AdminLogin">(
-    currentUser?.role === "Admin" ? "StaffLogin" : "AdminLogin"
+    currentUser?.role === "Admin" ? "StaffLogin" : "AdminLogin",
   );
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -56,9 +56,7 @@ export function SwitchUserModal({ isOpen, onClose }: SwitchUserModalProps) {
         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
           <div className="flex items-center gap-2">
             <UserCheck className="h-5 w-5 text-[#1177E5]" />
-            <h3 className="text-lg font-bold text-gray-900 sm:text-xl">
-              Switch Access / User
-            </h3>
+            <h3 className="text-lg font-bold text-gray-900 sm:text-xl">Switch Access / User</h3>
           </div>
           <button
             onClick={onClose}
@@ -112,7 +110,8 @@ export function SwitchUserModal({ isOpen, onClose }: SwitchUserModalProps) {
         {mode === "StaffLogin" ? (
           <form onSubmit={handleStaffLogin} className="space-y-4">
             <p className="text-xs text-gray-500">
-              Enter staff phone number and password to access <strong>POS</strong> and <strong>Orders</strong> only.
+              Enter staff phone number and password to access <strong>POS</strong> and{" "}
+              <strong>Orders</strong> only.
             </p>
 
             <div>
@@ -182,7 +181,8 @@ export function SwitchUserModal({ isOpen, onClose }: SwitchUserModalProps) {
           /* Admin Switch Form */
           <form onSubmit={handleAdminSwitch} className="space-y-4">
             <p className="text-xs text-gray-500">
-              Enter Admin Password to restore full management access (Dashboard, Menu, Inventory, Manage).
+              Enter Admin Password to restore full management access (Dashboard, Menu, Inventory,
+              Manage).
             </p>
 
             <div>
@@ -194,13 +194,12 @@ export function SwitchUserModal({ isOpen, onClose }: SwitchUserModalProps) {
                 <input
                   type="password"
                   required
-                  placeholder="Enter admin password (default: 1234)"
+                  placeholder="Enter admin password"
                   value={adminPassword}
                   onChange={(e) => setAdminPassword(e.target.value)}
                   className="w-full rounded-xl border border-gray-300 bg-white pl-9 pr-3 py-2 text-sm font-medium text-gray-900 focus:border-[#1177E5] focus:outline-none focus:ring-1 focus:ring-[#1177E5]"
                 />
               </div>
-              <p className="mt-1 text-[11px] text-gray-400">Default admin password is <strong>1234</strong></p>
             </div>
 
             <div className="pt-2 flex justify-end gap-2">

@@ -8,7 +8,6 @@ import {
   Phone,
   Eye,
   EyeOff,
-  Sparkles,
   ArrowRight,
   Store,
   KeyRound,
@@ -28,7 +27,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { currentUser, staff, loginAsAdmin, loginAsStaff } = useStore();
+  const { currentUser, loginAsAdmin, loginAsStaff } = useStore();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<"Admin" | "Staff">("Admin");
@@ -73,32 +72,15 @@ function LoginPage() {
     }
   };
 
-  const handleQuickFillAdmin = () => {
-    setAdminPassword("1234");
-  };
-
-  const handleQuickSelectStaff = (phone: string, pass: string) => {
-    setStaffPhone(phone);
-    setStaffPassword(pass);
-  };
-
   return (
     <div className="login-page-wrapper flex min-h-screen w-full flex-col justify-between bg-baky-surface font-sans text-black selection:bg-[#1177E5] selection:text-white">
       {/* Top Navbar */}
       <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 sm:px-8 lg:px-12">
         <div className="flex items-center gap-3">
-          <img
-            src="/baky-logo.png"
-            alt="Baky Logo"
-            className="h-11 w-11 shrink-0 object-contain"
-          />
+          <img src="/baky-logo.png" alt="Baky Logo" className="h-11 w-11 shrink-0 object-contain" />
           <div className="flex flex-col justify-center leading-tight">
-            <h1 className="text-base font-bold text-gray-900 sm:text-lg">
-              Baky Dessert House
-            </h1>
-            <p className="text-[11px] font-medium text-gray-500">
-              Management Portal
-            </p>
+            <h1 className="text-base font-bold text-gray-900 sm:text-lg">Baky Dessert House</h1>
+            <p className="text-[11px] font-medium text-gray-500">Management Portal</p>
           </div>
         </div>
 
@@ -119,9 +101,7 @@ function LoginPage() {
               alt="Baky Logo"
               className="mb-2 h-20 w-20 shrink-0 object-contain"
             />
-            <h2 className="text-2xl font-bold text-gray-900">
-              Sign In to Baky
-            </h2>
+            <h2 className="text-2xl font-bold text-gray-900">Sign In to Baky</h2>
             <p className="mt-1 text-xs text-gray-500 sm:text-sm">
               Select your role to access Point of Sale & Management
             </p>
@@ -169,17 +149,8 @@ function LoginPage() {
               /* Admin Login Form */
               <form onSubmit={handleAdminSubmit} className="space-y-4">
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-bold text-gray-700">
-                      Admin Password
-                    </label>
-                    <button
-                      type="button"
-                      onClick={handleQuickFillAdmin}
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#1177E5] hover:underline"
-                    >
-                      <Sparkles className="h-3 w-3" /> Quick fill (1234)
-                    </button>
+                  <div className="mb-1.5">
+                    <label className="text-xs font-bold text-gray-700">Admin Password</label>
                   </div>
                   <div className="relative">
                     <KeyRound className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
@@ -189,7 +160,7 @@ function LoginPage() {
                       autoFocus
                       value={adminPassword}
                       onChange={(e) => setAdminPassword(e.target.value)}
-                      placeholder="Enter admin password (1234)"
+                      placeholder="Enter admin password"
                       className="w-full rounded-xl border border-gray-300 bg-white pl-10 pr-10 py-2.5 text-sm font-medium text-gray-900 placeholder:text-gray-400 focus:border-[#1177E5] focus:outline-none focus:ring-1 focus:ring-[#1177E5] transition-all"
                     />
                     <button
@@ -207,7 +178,8 @@ function LoginPage() {
                 </div>
 
                 <div className="rounded-xl bg-gray-50 p-3 border border-gray-200 text-[11px] text-gray-600 leading-relaxed">
-                  <span className="font-bold text-gray-900">Admin Access:</span> Complete control over Sales Dashboard, Orders, POS, Menu, Stock Inventory & Staff Settings.
+                  <span className="font-bold text-gray-900">Admin Access:</span> Complete control
+                  over Sales Dashboard, Orders, POS, Menu, Stock Inventory & Staff Settings.
                 </div>
 
                 <button
@@ -267,27 +239,6 @@ function LoginPage() {
                     </button>
                   </div>
                 </div>
-
-                {staff.length > 0 && (
-                  <div className="rounded-xl bg-gray-50 p-3 border border-gray-200 text-[11px] text-gray-700 space-y-1.5">
-                    <span className="font-bold flex items-center gap-1 text-gray-900">
-                      <Sparkles className="h-3.5 w-3.5 text-[#1177E5]" />
-                      Quick Select Registered Staff:
-                    </span>
-                    <div className="flex flex-wrap gap-1.5 pt-0.5">
-                      {staff.map((s) => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => handleQuickSelectStaff(s.phone, s.password)}
-                          className="rounded-lg bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-800 border border-gray-300 hover:border-[#1177E5] hover:text-[#1177E5] transition-colors"
-                        >
-                          {s.name} ({s.phone})
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 <button
                   type="submit"
