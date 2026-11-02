@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, Settings, ChevronDown, UserCheck, ShieldCheck } from "lucide-react";
+import { Bell, Settings, ChevronDown, UserCheck, ShieldCheck, RefreshCw } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useStore, type DateRangeFilter } from "@/lib/store";
 import { SwitchUserModal } from "./SwitchUserModal";
@@ -21,18 +21,17 @@ export function Topbar({ title = "Dashboard" }: { title?: string }) {
   return (
     <>
       <header className="relative flex h-[60px] shrink-0 items-center justify-between gap-2 bg-baky-surface pl-[60px] pr-3 lg:h-[72px] lg:px-6">
-        <h1 className="min-w-0 truncate text-lg font-medium text-black lg:text-xl">
-          {title}
-        </h1>
+        <h1 className="min-w-0 truncate text-lg font-medium text-black lg:text-xl">{title}</h1>
 
         <div className="flex shrink-0 items-center gap-2 lg:gap-3">
           {/* Active Role Pill */}
           <button
             onClick={() => setIsSwitchModalOpen(true)}
-            className={`flex h-9 items-center gap-1.5 rounded-[10px] px-3 text-xs font-bold transition-all sm:text-sm lg:h-10 lg:rounded-xl ${isStaff
+            className={`flex h-9 items-center gap-1.5 rounded-[10px] px-3 text-xs font-bold transition-all sm:text-sm lg:h-10 lg:rounded-xl ${
+              isStaff
                 ? "bg-blue-100 text-blue-900 border border-blue-200 hover:bg-blue-200"
                 : "bg-emerald-100 text-emerald-900 border border-emerald-200 hover:bg-emerald-200"
-              }`}
+            }`}
           >
             {isStaff ? (
               <>
@@ -70,10 +69,11 @@ export function Topbar({ title = "Dashboard" }: { title?: string }) {
                       setDateRange(r);
                       setShowDateMenu(false);
                     }}
-                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors sm:text-sm ${dateRange === r
+                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors sm:text-sm ${
+                      dateRange === r
                         ? "bg-baky-card font-semibold text-black"
                         : "text-baky-muted hover:bg-baky-card/50 hover:text-black"
-                      }`}
+                    }`}
                   >
                     <span>{r}</span>
                     {dateRange === r && <span className="text-[#1177E5]">•</span>}
@@ -144,6 +144,16 @@ export function Topbar({ title = "Dashboard" }: { title?: string }) {
             )}
           </div>
 
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            aria-label="Refresh page"
+            title="Refresh page"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-baky-card text-baky-muted lg:h-10 lg:w-10 lg:rounded-xl"
+          >
+            <RefreshCw className="h-[17px] w-[17px] lg:h-[18px] lg:w-[18px]" strokeWidth={1.75} />
+          </button>
+
           {/* Settings Button */}
           <button
             onClick={() => navigate({ to: isStaff ? "/pos" : "/manage" })}
@@ -164,10 +174,7 @@ export function Topbar({ title = "Dashboard" }: { title?: string }) {
         </div>
       </header>
 
-      <SwitchUserModal
-        isOpen={isSwitchModalOpen}
-        onClose={() => setIsSwitchModalOpen(false)}
-      />
+      <SwitchUserModal isOpen={isSwitchModalOpen} onClose={() => setIsSwitchModalOpen(false)} />
     </>
   );
 }

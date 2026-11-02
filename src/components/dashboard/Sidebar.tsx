@@ -26,7 +26,13 @@ const allLinkItems = [
   { label: "Menu", icon: UtensilsCrossed, to: "/menu", exact: false, adminOnly: true },
   { label: "Inventory", icon: FileCheck, to: "/inventory", exact: false, adminOnly: true },
   { label: "Expenses", icon: Receipt, to: "/expenses", exact: false, adminOnly: true },
-  { label: "Financial Report", icon: ChartNoAxesCombined, to: "/financial-report", exact: false, adminOnly: true },
+  {
+    label: "Financial Report",
+    icon: ChartNoAxesCombined,
+    to: "/financial-report",
+    exact: false,
+    adminOnly: true,
+  },
   { label: "Manage", icon: Store, to: "/manage", exact: false, adminOnly: true },
 ] as const;
 
@@ -40,9 +46,7 @@ export function Sidebar() {
   const navigate = useNavigate();
 
   const isStaff = currentUser?.role === "Staff";
-  const visibleLinkItems = allLinkItems.filter(
-    (item) => !isStaff || !item.adminOnly
-  );
+  const visibleLinkItems = allLinkItems.filter((item) => !isStaff || !item.adminOnly);
 
   return (
     <>
@@ -65,13 +69,14 @@ export function Sidebar() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[280px] shrink-0 flex-col bg-baky-surface px-4 py-8 transition-all duration-300 lg:static lg:z-auto lg:h-full lg:w-[321px] lg:overflow-y-auto lg:translate-x-0 ${open
+        className={`fixed inset-y-0 left-0 z-50 flex w-[280px] shrink-0 flex-col overflow-y-auto overscroll-y-contain touch-pan-y bg-baky-surface px-4 py-8 transition-all duration-300 lg:static lg:z-auto lg:h-full lg:w-[321px] lg:translate-x-0 ${
+          open
             ? "translate-x-0 opacity-100 visible pointer-events-auto"
             : "-translate-x-full opacity-0 invisible pointer-events-none"
-          } lg:opacity-100 lg:visible lg:pointer-events-auto`}
+        } lg:opacity-100 lg:visible lg:pointer-events-auto`}
       >
         {/* Brand + close */}
-        <div className="flex items-center justify-between gap-3 px-2">
+        <div className="flex shrink-0 items-center justify-between gap-3 px-2">
           <div className="flex min-w-0 items-center gap-3">
             <img
               src="/baky-logo.png"
@@ -82,9 +87,7 @@ export function Sidebar() {
               <p className="truncate text-xl font-medium text-black lg:text-2xl">
                 Baky Dessert House
               </p>
-              <p className="text-base font-light text-black lg:text-lg">
-                Management
-              </p>
+              <p className="text-base font-light text-black lg:text-lg">Management</p>
             </div>
           </div>
           <button
@@ -97,7 +100,7 @@ export function Sidebar() {
         </div>
 
         {/* Nav */}
-        <nav className="mt-6 flex flex-col gap-2 lg:mt-8">
+        <nav className="mt-6 flex shrink-0 flex-col gap-2 lg:mt-8">
           {visibleLinkItems.map(({ label, icon: Icon, to, exact }) => (
             <Link
               key={label}
@@ -138,12 +141,15 @@ export function Sidebar() {
         </nav>
 
         {/* Switch User / Logout */}
-        <div className="mt-auto pt-4 space-y-2">
+        <div className="mt-auto shrink-0 space-y-2 pt-4">
           <button
             onClick={() => setIsSwitchModalOpen(true)}
             className="flex w-full items-center gap-4 rounded-[13px] px-4 py-3 text-left text-lg font-medium text-gray-700 hover:bg-baky-card/60 lg:text-xl"
           >
-            <UserCheck className="h-6 w-6 shrink-0 text-[#1177E5] lg:h-7 lg:w-7" strokeWidth={1.75} />
+            <UserCheck
+              className="h-6 w-6 shrink-0 text-[#1177E5] lg:h-7 lg:w-7"
+              strokeWidth={1.75}
+            />
             Switch User
           </button>
           <button
@@ -160,10 +166,7 @@ export function Sidebar() {
       </aside>
 
       {/* Switch User Modal */}
-      <SwitchUserModal
-        isOpen={isSwitchModalOpen}
-        onClose={() => setIsSwitchModalOpen(false)}
-      />
+      <SwitchUserModal isOpen={isSwitchModalOpen} onClose={() => setIsSwitchModalOpen(false)} />
 
       {/* Help Center Modal */}
       {isHelpOpen && (
@@ -185,10 +188,22 @@ export function Sidebar() {
               </button>
             </div>
             <div className="space-y-2 text-xs text-gray-700 sm:text-sm">
-              <p><strong>POS:</strong> Select category, pick a variant if needed, add items, and click Place Order.</p>
-              <p><strong>Orders:</strong> Update order status (In Progress → Ready → Served) or print receipts.</p>
-              <p><strong>Menu & Inventory:</strong> Add, edit, or toggle categories, menu items, and stock levels.</p>
-              <p><strong>Manage:</strong> Add staff logins (POS & Orders access) or update outlet info.</p>
+              <p>
+                <strong>POS:</strong> Select category, pick a variant if needed, add items, and
+                click Place Order.
+              </p>
+              <p>
+                <strong>Orders:</strong> Update order status (In Progress → Ready → Served) or print
+                receipts.
+              </p>
+              <p>
+                <strong>Menu & Inventory:</strong> Add, edit, or toggle categories, menu items, and
+                stock levels.
+              </p>
+              <p>
+                <strong>Manage:</strong> Add staff logins (POS & Orders access) or update outlet
+                info.
+              </p>
             </div>
             <div className="flex justify-end pt-2">
               <button
