@@ -14,11 +14,10 @@ const nextLabel: Record<OrderStatus, string> = {
 };
 
 export function OrdersBoard() {
-  const { orders, advanceOrder, deleteOrder, clearAllOrders, currentUser } = useStore();
+  const { orders, advanceOrder, deleteOrder } = useStore();
   const [active, setActive] = useState<OrderStatus>("New");
   const [closingOrder, setClosingOrder] = useState<Order | null>(null);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
-  const [isClearing, setIsClearing] = useState(false);
 
   const visible = orders.filter((o) => o.status === active);
 
@@ -85,17 +84,6 @@ export function OrdersBoard() {
     }
   };
 
-  const handleClearAll = async () => {
-    if (window.confirm("Are you sure you want to clear ALL orders? This will delete all active and past orders.")) {
-      setIsClearing(true);
-      try {
-        await clearAllOrders();
-      } finally {
-        setIsClearing(false);
-      }
-    }
-  };
-
   const handleDeleteSingle = async (e: React.MouseEvent, orderId: string) => {
     e.stopPropagation();
     if (window.confirm(`Delete order ${orderId}?`)) {
@@ -131,20 +119,6 @@ export function OrdersBoard() {
               );
             })}
           </div>
-
-          {orders.length > 0 && (
-            <div className="flex justify-end px-1 sm:px-2">
-              <button
-                onClick={handleClearAll}
-                disabled={isClearing}
-                className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50/80 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
-                title="Wipe all orders from database and store"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                {isClearing ? "Clearing..." : "Clear All Orders"}
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
@@ -155,7 +129,9 @@ export function OrdersBoard() {
             <span>Order #</span>
             <span>Products</span>
             <span>Amount</span>
-            <span className="text-right sm:text-left">{active === "Past Orders" ? "Payment" : "Action"}</span>
+            <span className="text-right sm:text-left">
+              {active === "Past Orders" ? "Payment" : "Action"}
+            </span>
           </div>
 
           {visible.length === 0 ? (
@@ -182,10 +158,14 @@ export function OrdersBoard() {
                   </div>
                   <span
                     className="truncate text-baky-muted cursor-pointer hover:text-gray-900 transition-colors"
-                    title={o.lines.map((l) => `${l.name}${l.variant ? ` (${l.variant})` : ""} ×${l.qty}`).join(", ")}
+                    title={o.lines
+                      .map((l) => `${l.name}${l.variant ? ` (${l.variant})` : ""} ×${l.qty}`)
+                      .join(", ")}
                     onClick={() => setViewingOrder(o)}
                   >
-                    {o.lines.map((l) => `${l.name}${l.variant ? ` (${l.variant})` : ""} ×${l.qty}`).join(", ")}
+                    {o.lines
+                      .map((l) => `${l.name}${l.variant ? ` (${l.variant})` : ""} ×${l.qty}`)
+                      .join(", ")}
                   </span>
                   <span className="font-bold text-gray-900">₹{o.total}</span>
                   <div className="flex items-center justify-end sm:justify-start gap-2 min-w-0">
@@ -219,16 +199,10 @@ export function OrdersBoard() {
       </div>
 
       {/* Payment Selection Modal */}
-      <CloseOrderModal
-        order={closingOrder}
-        onClose={() => setClosingOrder(null)}
-      />
+      <CloseOrderModal order={closingOrder} onClose={() => setClosingOrder(null)} />
 
       {/* Full Order Details Modal */}
-      <OrderDetailsModal
-        order={viewingOrder}
-        onClose={() => setViewingOrder(null)}
-      />
+      <OrderDetailsModal order={viewingOrder} onClose={() => setViewingOrder(null)} />
     </div>
   );
 }

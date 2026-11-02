@@ -148,7 +148,6 @@ type Store = {
     total?: number,
   ) => Promise<void>;
   deleteOrder: (id: string) => Promise<void>;
-  clearAllOrders: () => Promise<void>;
   addStaff: (input: { name: string; phone: string; password: string }) => Promise<void>;
   updateStaff: (
     id: string,
@@ -1146,16 +1145,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           await supabase.from("orders").delete().eq("id", id).then(() => { }, () => { });
         }
         toast.success(`Order ${id} deleted`);
-      },
-      clearAllOrders: async () => {
-        setOrders([]);
-        setOrderNo(1);
-        setLocal(LOCAL_ORDER_KEY, []);
-
-        if (supabase && isSupabaseConfigured) {
-          await supabase.from("orders").delete().neq("id", "___NONE___").then(() => { }, () => { });
-        }
-        toast.success("All orders cleared");
       },
       addStaff: async (input) => {
         const name = input.name.trim();

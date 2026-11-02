@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#c5e9a3" />
+    <title>You're offline · Baky Dessert House</title>
+    <style>
+      body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f6f8f3;color:#171717;font-family:Arial,sans-serif}
+      main{max-width:28rem;margin:1.5rem;padding:2rem;border-radius:1.25rem;background:#fff;text-align:center;box-shadow:0 12px 36px #15200b14}
+      img{width:5rem;height:5rem;object-fit:contain}h1{font-size:1.4rem;margin:1rem 0 .5rem}p{color:#62685d;line-height:1.6;margin:0}
+      button{margin-top:1.5rem;border:0;border-radius:.75rem;background:#171717;color:white;padding:.8rem 1.2rem;font-weight:700;cursor:pointer}
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/baky-logo.png" alt="Baky Dessert House" />
+      <h1>You're currently offline</h1>
+      <p>Reconnect to the internet to use the dashboard. Your shop data will load when the connection is back.</p>
+      <button onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,32 @@
+{
+  "id": "/",
+  "name": "Baky Dessert House",
+  "short_name": "Baky Desserts",
+  "description": "Baky Dessert House shop management and sales dashboard.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#c5e9a3",
+  "icons": [
+    {
+      "src": "/baky-app-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/baky-app-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/baky-app-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

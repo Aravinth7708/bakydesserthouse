@@ -7,7 +7,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -86,11 +86,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "Baky Dessert House management dashboard — sales overview, top selling desserts, orders, and inventory alerts.",
       },
       { name: "author", content: "Baky Dessert House" },
+      { name: "theme-color", content: "#c5e9a3" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-title", content: "Baky Desserts" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       { property: "og:title", content: "Baky Dessert House — Dashboard" },
       {
         property: "og:description",
-        content:
-          "Sales overview, top selling desserts, orders, and inventory alerts.",
+        content: "Sales overview, top selling desserts, orders, and inventory alerts.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -101,6 +105,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: appCss,
       },
       { rel: "icon", href: "/baky-logo.png", type: "image/png" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       {
         rel: "preconnect",
@@ -141,8 +147,96 @@ function RootComponent() {
       <StoreProvider>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
+        <PwaInstallPrompt />
         <Toaster />
       </StoreProvider>
     </QueryClientProvider>
+  );
+}
+
+type InstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+};
+
+function PwaInstallPrompt() {
+  const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
+  const [showIosHelp, setShowIosHelp] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    if (import.meta.env.PROD && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch((error: unknown) => {
+        console.error("Could not register the Baky app service worker", error);
+      });
+    }
+
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    setIsInstalled(isStandalone);
+
+    const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+    if (isIos && !isStandalone) setShowIosHelp(true);
+
+    const handleInstallAvailable = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as InstallPromptEvent);
+    };
+    const handleInstalled = () => {
+      setIsInstalled(true);
+      setInstallPrompt(null);
+      setShowIosHelp(false);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleInstallAvailable);
+    window.addEventListener("appinstalled", handleInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleInstallAvailable);
+      window.removeEventListener("appinstalled", handleInstalled);
+    };
+  }, []);
+
+  if (isInstalled || (!installPrompt && !showIosHelp)) return null;
+
+  const installApp = async () => {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    await installPrompt.userChoice;
+    setInstallPrompt(null);
+  };
+
+  return (
+    <aside className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-[100] mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-black/10 bg-white p-3 shadow-xl sm:inset-x-auto sm:bottom-4 sm:right-4">
+      <img src="/baky-app-192.png" alt="" className="h-11 w-11 shrink-0 rounded-xl" />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-bold text-black">Install Baky Dessert House</p>
+        {showIosHelp && !installPrompt ? (
+          <p className="mt-0.5 text-xs text-black/60">
+            Tap Share, then “Add to Home Screen” to install.
+          </p>
+        ) : (
+          <p className="mt-0.5 text-xs text-black/60">Add the dashboard to your home screen.</p>
+        )}
+      </div>
+      {installPrompt ? (
+        <button
+          type="button"
+          onClick={() => void installApp()}
+          className="shrink-0 rounded-xl bg-black px-3 py-2 text-xs font-semibold text-white"
+        >
+          Install
+        </button>
+      ) : (
+        <button
+          type="button"
+          aria-label="Dismiss install instructions"
+          onClick={() => setShowIosHelp(false)}
+          className="shrink-0 rounded-lg px-2 py-1 text-sm text-black/50"
+        >
+          Dismiss
+        </button>
+      )}
+    </aside>
   );
 }
