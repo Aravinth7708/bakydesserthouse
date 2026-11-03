@@ -1,14 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useStore } from "@/lib/store";
-import { 
-  Plus, 
-  Trash2, 
-  Search, 
-  Calendar, 
-  Receipt,
-  X,
-  TrendingDown
-} from "lucide-react";
+import { Plus, Trash2, Search, Calendar, Receipt, X, TrendingDown, ImagePlus } from "lucide-react";
 
 export function ExpensesBoard() {
   const { expenses, addExpense, deleteExpense } = useStore();
@@ -21,6 +13,19 @@ export function ExpensesBoard() {
   const [amount, setAmount] = useState<string>("");
   const [date, setDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState("");
+  const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    if (!receiptFile) {
+      setReceiptPreview("");
+      return;
+    }
+    const previewUrl = URL.createObjectURL(receiptFile);
+    setReceiptPreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [receiptFile]);
 
   // Summary Metrics
   const totalAmount = useMemo(() => expenses.reduce((sum, e) => sum + e.amount, 0), [expenses]);
@@ -40,6 +45,8 @@ export function ExpensesBoard() {
     setAmount("");
     setDate(new Date().toISOString().split("T")[0]);
     setNotes("");
+    setReceiptFile(null);
+    setFormError("");
     setIsModalOpen(true);
   };
 
@@ -47,6 +54,7 @@ export function ExpensesBoard() {
     e.preventDefault();
     const numAmount = parseFloat(amount);
     if (!title.trim() || isNaN(numAmount) || numAmount <= 0) return;
+    setFormError("");
 
     setIsSubmitting(true);
     try {
@@ -57,10 +65,12 @@ export function ExpensesBoard() {
         paymentMethod: "Cash",
         date,
         notes: notes.trim(),
+        receiptFile: receiptFile ?? undefined,
       });
       setIsModalOpen(false);
     } catch (err) {
       console.error("Add expense error:", err);
+      setFormError(err instanceof Error ? err.message : "Could not save the expense receipt.");
     } finally {
       setIsSubmitting(false);
     }
@@ -92,8 +102,12 @@ export function ExpensesBoard() {
 
         <div className="flex items-center gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-baky-muted/20">
           <div className="rounded-xl bg-baky-card px-4 py-2 text-center">
-            <p className="text-[10px] font-semibold text-baky-muted uppercase tracking-wider">Expense Records</p>
-            <p className="text-sm sm:text-base font-extrabold text-black">{expenses.length} Total</p>
+            <p className="text-[10px] font-semibold text-baky-muted uppercase tracking-wider">
+              Expense Records
+            </p>
+            <p className="text-sm sm:text-base font-extrabold text-black">
+              {expenses.length} Total
+            </p>
           </div>
         </div>
       </div>
@@ -174,9 +188,22 @@ export function ExpensesBoard() {
                   <div className="col-span-6 sm:col-span-6 min-w-0 pr-2">
                     <p className="font-bold text-black truncate">{exp.title}</p>
                     {exp.notes && (
-                      <p className="text-[11px] md:text-xs text-baky-muted truncate font-normal mt-0.5" title={exp.notes}>
+                      <p
+                        className="text-[11px] md:text-xs text-baky-muted truncate font-normal mt-0.5"
+                        title={exp.notes}
+                      >
                         {exp.notes}
                       </p>
+                    )}
+                    {exp.receiptUrl && (
+                      <a
+                        href={exp.receiptUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-[#1177E5] hover:underline"
+                      >
+                        <Receipt className="h-3 w-3" /> View receipt
+                      </a>
                     )}
                   </div>
 
@@ -217,9 +244,7 @@ export function ExpensesBoard() {
                   <Receipt className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-extrabold text-black sm:text-xl">
-                    Add New Expense
-                  </h3>
+                  <h3 className="text-lg font-extrabold text-black sm:text-xl">Add New Expense</h3>
                   <p className="text-xs font-medium text-baky-muted">
                     Record fuel, stock, water, or shop operational costs
                   </p>
@@ -250,12 +275,65 @@ export function ExpensesBoard() {
                 />
               </div>
 
+              <div>
+                <label className="mb-1 block text-xs font-bold text-black">
+                  Receipt photo <span className="font-medium text-baky-muted">(Optional)</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-3 transition hover:border-[#1177E5] hover:bg-blue-50/40">
+                  {receiptPreview ? (
+                    <img
+                      src={receiptPreview}
+                      alt="Receipt preview"
+                      className="h-16 w-16 shrink-0 rounded-lg border border-gray-200 object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white text-[#1177E5]">
+                      <ImagePlus className="h-6 w-6" />
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs font-semibold text-black sm:text-sm">
+                      {receiptFile?.name || "Choose receipt photo"}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-baky-muted">
+                      JPG, PNG or WebP · up to 5 MB
+                    </span>
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (!file) return;
+                      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+                        setFormError("Choose a JPG, PNG, or WebP image.");
+                        return;
+                      }
+                      if (file.size > 5 * 1024 * 1024) {
+                        setFormError("Receipt photo must be 5 MB or smaller.");
+                        return;
+                      }
+                      setFormError("");
+                      setReceiptFile(file);
+                    }}
+                  />
+                </label>
+                {receiptFile && (
+                  <button
+                    type="button"
+                    onClick={() => setReceiptFile(null)}
+                    className="mt-1 text-[11px] font-semibold text-rose-700 hover:underline"
+                  >
+                    Remove photo
+                  </button>
+                )}
+              </div>
+
               {/* Amount & Date Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-black mb-1">
-                    Amount (₹) *
-                  </label>
+                  <label className="block text-xs font-bold text-black mb-1">Amount (₹) *</label>
                   <input
                     type="number"
                     step="0.01"
@@ -269,9 +347,7 @@ export function ExpensesBoard() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-black mb-1">
-                    Date *
-                  </label>
+                  <label className="block text-xs font-bold text-black mb-1">Date *</label>
                   <input
                     type="date"
                     required
@@ -313,6 +389,11 @@ export function ExpensesBoard() {
                   {isSubmitting ? "Saving..." : "Save Expense"}
                 </button>
               </div>
+              {formError && (
+                <p role="alert" className="text-xs font-semibold text-rose-700">
+                  {formError}
+                </p>
+              )}
             </form>
           </div>
         </div>

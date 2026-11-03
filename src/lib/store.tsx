@@ -96,6 +96,8 @@ export type Expense = {
   amount: number;
   paymentMethod?: string;
   notes?: string;
+  receiptPath?: string;
+  receiptUrl?: string;
   date: string;
   createdAt?: string;
 };
@@ -187,6 +189,7 @@ type Store = {
     paymentMethod?: string;
     notes?: string;
     date?: string;
+    receiptFile?: File;
   }) => Promise<void>;
   updateExpense: (
     id: string,
@@ -705,6 +708,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             amount: Number(e.amount),
             paymentMethod: e.payment_method || "Cash",
             notes: e.notes || undefined,
+            receiptPath: e.receipt_path || undefined,
+            receiptUrl: e.receipt_path
+              ? supabase.storage.from("expense-receipts").getPublicUrl(e.receipt_path).data.publicUrl
+              : undefined,
             date: e.date,
             createdAt: e.created_at,
           }));
@@ -1403,13 +1410,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         );
       },
       addExpense: async (input) => {
+        const id = generateId("exp");
+        let receiptPath: string | undefined;
+        let receiptUrl: string | undefined;
+
+        if (input.receiptFile) {
+          if (!supabase || !isSupabaseConfigured) {
+            throw new Error("Connect Supabase to save receipt photos.");
+          }
+          const safeName = input.receiptFile.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+          receiptPath = `${id}/${Date.now()}-${safeName}`;
+          const { error } = await supabase.storage
+            .from("expense-receipts")
+            .upload(receiptPath, input.receiptFile, {
+              contentType: input.receiptFile.type,
+              upsert: false,
+            });
+          if (error) throw new Error(`Receipt upload failed: ${error.message}`);
+          receiptUrl = supabase.storage.from("expense-receipts").getPublicUrl(receiptPath).data.publicUrl;
+        }
+
         const newExp: Expense = {
-          id: generateId("exp"),
+          id,
           title: input.title.trim(),
           category: input.category,
           amount: input.amount,
           paymentMethod: input.paymentMethod || "Cash",
           notes: input.notes?.trim() || "",
+          receiptPath,
+          receiptUrl,
           date: input.date || new Date().toISOString().split("T")[0],
           createdAt: new Date().toISOString(),
         };
@@ -1421,7 +1450,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
 
         if (supabase && isSupabaseConfigured) {
-          await supabase
+          const { error } = await supabase
             .from("expenses")
             .insert({
               id: newExp.id,
@@ -1431,8 +1460,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               payment_method: newExp.paymentMethod,
               notes: newExp.notes,
               date: newExp.date,
-            })
-            .then(() => { }, () => { });
+              receipt_path: newExp.receiptPath ?? null,
+            });
+          if (error && newExp.receiptPath) {
+            await supabase.storage.from("expense-receipts").remove([newExp.receiptPath]);
+            setExpenses((prev) => {
+              const next = prev.filter((expense) => expense.id !== newExp.id);
+              setLocal(LOCAL_EXPENSE_KEY, next);
+              return next;
+            });
+            throw new Error(`Receipt uploaded, but expense could not be saved: ${error.message}`);
+          }
         }
         toast.success(`Expense "${newExp.title}" recorded`);
       },
@@ -1485,6 +1523,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
 
         if (supabase && isSupabaseConfigured) {
+          if (target?.receiptPath) {
+            await supabase.storage.from("expense-receipts").remove([target.receiptPath]);
+          }
           await supabase.from("expenses").delete().eq("id", id).then(() => { }, () => { });
         }
         toast.success(`Expense "${target?.title || ""}" deleted`);
