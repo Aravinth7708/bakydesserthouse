@@ -1,10 +1,38 @@
 import { useState, useMemo, useEffect } from "react";
-import { useStore } from "@/lib/store";
+import { useStore, type ExpenseCategory } from "@/lib/store";
 import { Plus, Trash2, Search, Calendar, Receipt, X, TrendingDown, ImagePlus } from "lucide-react";
+
+const expenseCategories: ExpenseCategory[] = [
+  "Fuel",
+  "Stock / Ingredients",
+  "Water & Utilities",
+  "Maintenance & Repair",
+  "Salary",
+  "Other",
+];
+
+type DateFilter = "All dates" | "Today" | "Yesterday" | "This month" | "Last month";
+
+function localDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function matchesDateFilter(date: string, filter: DateFilter) {
+  if (filter === "All dates") return true;
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  if (filter === "Today") return date === localDateKey(now);
+  if (filter === "Yesterday") return date === localDateKey(yesterday);
+  if (filter === "This month") return date.startsWith(localDateKey(now).slice(0, 7));
+  return date.startsWith(localDateKey(lastMonth).slice(0, 7));
+}
 
 export function ExpensesBoard() {
   const { expenses, addExpense, deleteExpense } = useStore();
   const [search, setSearch] = useState("");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("Today");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -13,6 +41,7 @@ export function ExpensesBoard() {
   const [amount, setAmount] = useState<string>("");
   const [date, setDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
+  const [category, setCategory] = useState<ExpenseCategory>("Other");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState("");
   const [formError, setFormError] = useState("");
@@ -32,19 +61,57 @@ export function ExpensesBoard() {
 
   // Filtered List
   const filteredExpenses = useMemo(() => {
-    return expenses.filter((e) => {
-      return (
-        e.title.toLowerCase().includes(search.toLowerCase()) ||
-        (e.notes && e.notes.toLowerCase().includes(search.toLowerCase()))
+    return expenses
+      .filter((e) => {
+        const matchesSearch =
+          e.title.toLowerCase().includes(search.toLowerCase()) ||
+          (e.notes && e.notes.toLowerCase().includes(search.toLowerCase())) ||
+          e.category.toLowerCase().includes(search.toLowerCase());
+        return matchesSearch && matchesDateFilter(e.date, dateFilter);
+      })
+      .sort(
+        (a, b) =>
+          b.date.localeCompare(a.date) || (b.createdAt || "").localeCompare(a.createdAt || ""),
       );
+  }, [expenses, search, dateFilter]);
+
+  const expenseDateGroups = useMemo(() => {
+    const now = new Date();
+    const dateKey = (date: Date) =>
+      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const today = dateKey(now);
+    const yesterdayDate = new Date(now);
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterday = dateKey(yesterdayDate);
+    const grouped = new Map<string, typeof filteredExpenses>();
+    filteredExpenses.forEach((expense) => {
+      grouped.set(expense.date, [...(grouped.get(expense.date) || []), expense]);
     });
-  }, [expenses, search]);
+
+    return [...grouped.entries()].map(([date, records]) => ({
+      date,
+      title:
+        date === today
+          ? "Today"
+          : date === yesterday
+            ? "Yesterday"
+            : new Date(`${date}T12:00:00`).toLocaleDateString("en-IN", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              }),
+      records,
+      total: records.reduce((sum, expense) => sum + expense.amount, 0),
+    }));
+  }, [filteredExpenses]);
 
   const handleOpenModal = () => {
     setTitle("");
     setAmount("");
     setDate(new Date().toISOString().split("T")[0]);
     setNotes("");
+    setCategory("Other");
     setReceiptFile(null);
     setFormError("");
     setIsModalOpen(true);
@@ -60,7 +127,7 @@ export function ExpensesBoard() {
     try {
       await addExpense({
         title: title.trim(),
-        category: "Other",
+        category,
         amount: numAmount,
         paymentMethod: "Cash",
         date,
@@ -115,52 +182,68 @@ export function ExpensesBoard() {
       {/* Main Content Area (Flat, No Shadows) */}
       <div className="rounded-[15px] bg-baky-surface p-3 sm:p-5 lg:p-6">
         {/* Control Header & Add Button */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-baky-muted/30">
-          {/* Search Box */}
-          <div className="relative flex-1 max-w-md min-w-0">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-baky-muted" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search expenses by title, notes..."
-              className="w-full rounded-xl border border-baky-muted/40 bg-white pl-10 pr-4 py-2.5 text-xs font-medium text-black focus:border-[#1177E5] focus:outline-none focus:ring-1 focus:ring-[#1177E5] sm:text-sm"
-            />
-            {search && (
-              <button
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-baky-muted hover:text-black"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
+        <div className="flex flex-col gap-3 border-b border-baky-muted/30 pb-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative min-w-0 flex-1 sm:max-w-md">
+              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-baky-muted" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search title, notes, or category..."
+                className="w-full rounded-xl border border-baky-muted/40 bg-white py-2.5 pl-10 pr-10 text-xs font-medium text-black focus:border-[#1177E5] focus:outline-none focus:ring-1 focus:ring-[#1177E5] sm:text-sm"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  aria-label="Clear search"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-baky-muted hover:text-black"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={handleOpenModal}
+              className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#1177E5] px-5 py-2.5 text-xs font-bold text-white transition-all hover:bg-blue-600 active:scale-95 sm:text-sm"
+            >
+              <Plus className="h-4 w-4 stroke-[3]" />
+              Add Expense
+            </button>
           </div>
-
-          {/* Add Expense Button */}
-          <button
-            onClick={handleOpenModal}
-            className="flex items-center justify-center gap-2 rounded-xl bg-[#1177E5] px-5 py-2.5 text-xs font-bold text-white hover:bg-blue-600 active:scale-95 transition-all sm:text-sm shrink-0"
-          >
-            <Plus className="h-4 w-4 stroke-[3]" />
-            Add Expense
-          </button>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label className="flex h-10 items-center gap-2 rounded-xl border border-baky-muted/30 bg-white px-3 text-xs font-semibold text-black sm:text-sm">
+              <Calendar className="h-4 w-4 text-baky-muted" />
+              <span className="sr-only">Filter expenses by date</span>
+              <select
+                value={dateFilter}
+                onChange={(event) => setDateFilter(event.target.value as DateFilter)}
+                className="max-w-[220px] bg-transparent outline-none"
+              >
+                <option value="All dates">All dates</option>
+                <option value="Today">Today</option>
+                <option value="Yesterday">Yesterday</option>
+                <option value="This month">This month</option>
+                <option value="Last month">Last month</option>
+              </select>
+            </label>
+            <p className="text-xs text-baky-muted">
+              Showing <span className="font-bold text-black">{filteredExpenses.length}</span> of{" "}
+              {expenses.length} records · newest first
+            </p>
+          </div>
         </div>
 
-        {/* Expenses List / Table */}
+        {/* Expense cards */}
         <div className="min-w-0 mt-4">
-          <div className="grid grid-cols-12 gap-2 border-b border-baky-muted/40 px-1 pb-2 text-xs font-semibold text-baky-muted uppercase tracking-wider md:text-sm">
-            <span className="col-span-3 sm:col-span-3">Date</span>
-            <span className="col-span-6 sm:col-span-6">Expense Title & Purpose</span>
-            <span className="col-span-3 sm:col-span-3 text-right">Amount & Action</span>
-          </div>
-
           {filteredExpenses.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Receipt className="h-10 w-10 text-baky-muted/60 mb-2" />
               <p className="text-sm font-semibold text-black">No expenses found</p>
               <p className="text-xs text-baky-muted mt-1 max-w-sm">
-                {search
-                  ? "Try resetting your search query or add a new expense."
+                {search || dateFilter !== "All dates"
+                  ? "Adjust the search or date filter to find an expense."
                   : "Start recording expenses like fuel, chocolates, stock, or water bills!"}
               </p>
               <button
@@ -172,57 +255,88 @@ export function ExpensesBoard() {
               </button>
             </div>
           ) : (
-            <ul className="divide-y divide-baky-muted/20">
-              {filteredExpenses.map((exp) => (
-                <li
-                  key={exp.id}
-                  className="grid grid-cols-12 items-center gap-2 px-1 py-3 text-xs font-medium text-black md:py-4 md:text-base transition-colors hover:bg-baky-card/30"
-                >
-                  {/* Date */}
-                  <div className="col-span-3 sm:col-span-3 flex items-center gap-1.5 text-black/80 truncate">
-                    <Calendar className="h-3.5 w-3.5 text-baky-muted shrink-0 hidden sm:inline" />
-                    <span className="font-semibold text-black">{exp.date}</span>
+            <div className="space-y-5">
+              {expenseDateGroups.map((group) => (
+                <section key={group.date}>
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white px-3 py-3 sm:px-4">
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[#1177E5]">
+                        <Calendar className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <h3 className="text-sm font-bold text-black">{group.title}</h3>
+                        <p className="text-[11px] text-baky-muted">
+                          {group.records.length}{" "}
+                          {group.records.length === 1 ? "expense" : "expenses"}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-sm font-extrabold text-black">
+                      Day total: ₹{Math.round(group.total).toLocaleString("en-IN")}
+                    </p>
                   </div>
-
-                  {/* Title & Notes */}
-                  <div className="col-span-6 sm:col-span-6 min-w-0 pr-2">
-                    <p className="font-bold text-black truncate">{exp.title}</p>
-                    {exp.notes && (
-                      <p
-                        className="text-[11px] md:text-xs text-baky-muted truncate font-normal mt-0.5"
-                        title={exp.notes}
+                  <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {group.records.map((exp) => (
+                      <li
+                        key={exp.id}
+                        className="flex min-w-0 flex-col justify-between rounded-2xl border border-black/5 bg-white p-4 shadow-sm transition hover:border-black/10 hover:shadow-md"
                       >
-                        {exp.notes}
-                      </p>
-                    )}
-                    {exp.receiptUrl && (
-                      <a
-                        href={exp.receiptUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-[#1177E5] hover:underline"
-                      >
-                        <Receipt className="h-3 w-3" /> View receipt
-                      </a>
-                    )}
-                  </div>
-
-                  {/* Amount & Actions */}
-                  <div className="col-span-3 sm:col-span-3 flex items-center justify-end gap-2.5 min-w-0">
-                    <span className="font-extrabold text-black text-sm md:text-lg">
-                      ₹{exp.amount.toLocaleString("en-IN")}
-                    </span>
-                    <button
-                      onClick={() => handleDelete(exp.id, exp.title)}
-                      className="p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors shrink-0"
-                      title={`Delete expense ${exp.title}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </li>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <span className="max-w-full truncate rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-blue-800">
+                              {exp.category}
+                            </span>
+                            {exp.paymentMethod && (
+                              <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-semibold text-gray-600">
+                                {exp.paymentMethod}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(exp.id, exp.title)}
+                            aria-label={`Delete expense ${exp.title}`}
+                            className="shrink-0 rounded-lg p-2 text-gray-400 transition hover:bg-red-50 hover:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="mt-2 min-w-0 flex-1">
+                          <p className="break-words text-sm font-bold text-black sm:text-base">
+                            {exp.title}
+                          </p>
+                          {exp.notes && (
+                            <p
+                              className="mt-1 line-clamp-2 break-words text-xs text-baky-muted"
+                              title={exp.notes}
+                            >
+                              {exp.notes}
+                            </p>
+                          )}
+                        </div>
+                        <div className="mt-4 flex items-end justify-between gap-2 border-t border-black/5 pt-3">
+                          {exp.receiptUrl ? (
+                            <a
+                              href={exp.receiptUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#1177E5] hover:underline"
+                            >
+                              <Receipt className="h-3.5 w-3.5" /> View receipt
+                            </a>
+                          ) : (
+                            <span className="text-xs text-baky-muted">No receipt attached</span>
+                          )}
+                          <span className="shrink-0 text-lg font-extrabold text-black sm:text-xl">
+                            ₹{Math.round(exp.amount).toLocaleString("en-IN")}
+                          </span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
               ))}
-            </ul>
+            </div>
           )}
         </div>
       </div>
@@ -273,6 +387,21 @@ export function ExpensesBoard() {
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-xs font-medium text-black focus:border-[#1177E5] focus:outline-none focus:ring-1 focus:ring-[#1177E5] sm:text-sm"
                 />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-bold text-black">Category *</label>
+                <select
+                  value={category}
+                  onChange={(event) => setCategory(event.target.value as ExpenseCategory)}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-xs font-medium text-black focus:border-[#1177E5] focus:outline-none focus:ring-1 focus:ring-[#1177E5] sm:text-sm"
+                >
+                  {expenseCategories.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>

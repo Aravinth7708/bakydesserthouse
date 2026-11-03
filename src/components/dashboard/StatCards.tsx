@@ -80,7 +80,7 @@ export function StatCards() {
           Total Expenses
         </p>
         <p className="mt-1 text-lg font-medium leading-none text-black md:mt-1.5 md:text-2xl lg:mt-2 lg:text-[26px]">
-          ₹{totalExpenses.toLocaleString()}
+          ₹{Math.round(totalExpenses).toLocaleString("en-IN")}
         </p>
         <p className="mt-1 text-[10px] font-medium text-baky-muted md:mt-1.5 md:text-sm lg:mt-2 lg:text-xl">
           {filteredExpenses.length} records
