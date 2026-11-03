@@ -29,6 +29,13 @@ const allLinkItems = [
   { label: "Inventory", icon: FileCheck, to: "/inventory", exact: false, adminOnly: true },
   { label: "Expenses", icon: Receipt, to: "/expenses", exact: false, adminOnly: true },
   {
+    label: "Analysis",
+    icon: ChartNoAxesCombined,
+    to: "/analysis",
+    exact: false,
+    adminOnly: true,
+  },
+  {
     label: "Financial Report",
     icon: ChartNoAxesCombined,
     to: "/financial-report",
