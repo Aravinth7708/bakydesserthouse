@@ -1,6 +1,16 @@
 import { useState, useEffect } from "react";
 import { Order, PaymentMethod, useStore } from "@/lib/store";
-import { X, CreditCard, Banknote, Smartphone, Globe, Split, AlertCircle, Check } from "lucide-react";
+import {
+  X,
+  CreditCard,
+  Banknote,
+  Smartphone,
+  Globe,
+  Split,
+  AlertCircle,
+  Check,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 interface CloseOrderModalProps {
   order: Order | null;
@@ -12,15 +22,22 @@ export function CloseOrderModal({ order, onClose }: CloseOrderModalProps) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("Cash");
   const [cashAmount, setCashAmount] = useState<number>(0);
   const [gpayAmount, setGpayAmount] = useState<number>(0);
+  const [onlineAmount, setOnlineAmount] = useState("");
   const [isTakeaway, setIsTakeaway] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const payableTotal = order ? order.total + (isTakeaway ? 10 : 0) : 0;
+  const parsedOnlineAmount = Number(onlineAmount);
+  const isOnlineAmountValid =
+    onlineAmount.trim() !== "" && Number.isFinite(parsedOnlineAmount) && parsedOnlineAmount > 0;
+  const displayedTotal =
+    selectedMethod === "Online Orders" && isOnlineAmountValid ? parsedOnlineAmount : payableTotal;
 
   useEffect(() => {
     if (order) {
       const half = Math.round(order.total / 2);
       setCashAmount(half);
       setGpayAmount(order.total - half);
+      setOnlineAmount(String(order.total));
       setSelectedMethod("Cash");
       setIsTakeaway(false);
     }
@@ -51,25 +68,36 @@ export function CloseOrderModal({ order, onClose }: CloseOrderModalProps) {
     const nextCash = Math.min(cashAmount, nextTotal);
     setCashAmount(nextCash);
     setGpayAmount(nextTotal - nextCash);
+    setOnlineAmount(String(nextTotal));
     setIsTakeaway(checked);
   };
 
-  const isSplitValid = selectedMethod !== "Split Payment" || (cashAmount + gpayAmount === payableTotal);
+  const isSplitValid =
+    selectedMethod !== "Split Payment" || cashAmount + gpayAmount === payableTotal;
 
   const handleConfirm = async () => {
-    if (!order || !isSplitValid || isSubmitting) return;
+    if (
+      !order ||
+      !isSplitValid ||
+      (selectedMethod === "Online Orders" && !isOnlineAmountValid) ||
+      isSubmitting
+    )
+      return;
 
     setIsSubmitting(true);
     try {
       const detailParts: string[] = [];
       if (isTakeaway) detailParts.push("Takeaway charges: ₹10");
-      if (selectedMethod === "Split Payment") {
+      if (selectedMethod === "Online Orders") {
+        detailParts.push(`Online amount received: ₹${parsedOnlineAmount}`);
+      } else if (selectedMethod === "Split Payment") {
         detailParts.push(`Cash: ₹${cashAmount}, GPay: ₹${gpayAmount}`);
       } else if (selectedMethod === "Nil") {
         detailParts.push("Item given without payment (Unpaid)");
       }
 
-      await closeOrder(order.id, selectedMethod, detailParts.join(" · "), payableTotal);
+      const finalTotal = selectedMethod === "Online Orders" ? parsedOnlineAmount : payableTotal;
+      await closeOrder(order.id, selectedMethod, detailParts.join(" · "), finalTotal);
       onClose();
     } catch (err) {
       console.error("Close order error:", err);
@@ -82,68 +110,65 @@ export function CloseOrderModal({ order, onClose }: CloseOrderModalProps) {
     id: PaymentMethod;
     label: string;
     description: string;
-    icon: any;
+    icon: LucideIcon;
     color: string;
     bgColor: string;
     borderColor: string;
   }[] = [
-      {
-        id: "Cash",
-        label: "Cash",
-        description: "Received full payment in cash",
-        icon: Banknote,
-        color: "text-emerald-700",
-        bgColor: "bg-emerald-50 hover:bg-emerald-100/70",
-        borderColor: "border-emerald-500",
-      },
-      {
-        id: "GPay",
-        label: "GPay / UPI",
-        description: "Paid via GPay, PhonePe, or QR Code",
-        icon: Smartphone,
-        color: "text-blue-700",
-        bgColor: "bg-blue-50 hover:bg-blue-100/70",
-        borderColor: "border-blue-500",
-      },
-      {
-        id: "Online Orders",
-        label: "Online Orders",
-        description: "Zomato, Swiggy or Online platform",
-        icon: Globe,
-        color: "text-purple-700",
-        bgColor: "bg-purple-50 hover:bg-purple-100/70",
-        borderColor: "border-purple-500",
-      },
-      {
-        id: "Split Payment",
-        label: "Split Payment",
-        description: "Half GPay / Cash or custom split",
-        icon: Split,
-        color: "text-indigo-700",
-        bgColor: "bg-indigo-50 hover:bg-indigo-100/70",
-        borderColor: "border-indigo-500",
-      },
-      {
-        id: "Nil",
-        label: "Nil (Item given - Payment pending)",
-        description: "Order served but payment not received yet",
-        icon: AlertCircle,
-        color: "text-amber-800",
-        bgColor: "bg-amber-50 hover:bg-amber-100/70",
-        borderColor: "border-amber-500",
-      },
-    ];
+    {
+      id: "Cash",
+      label: "Cash",
+      description: "Received full payment in cash",
+      icon: Banknote,
+      color: "text-emerald-700",
+      bgColor: "bg-emerald-50 hover:bg-emerald-100/70",
+      borderColor: "border-emerald-500",
+    },
+    {
+      id: "GPay",
+      label: "GPay / UPI",
+      description: "Paid via GPay, PhonePe, or QR Code",
+      icon: Smartphone,
+      color: "text-blue-700",
+      bgColor: "bg-blue-50 hover:bg-blue-100/70",
+      borderColor: "border-blue-500",
+    },
+    {
+      id: "Online Orders",
+      label: "Online Orders",
+      description: "Zomato, Swiggy or Online platform",
+      icon: Globe,
+      color: "text-purple-700",
+      bgColor: "bg-purple-50 hover:bg-purple-100/70",
+      borderColor: "border-purple-500",
+    },
+    {
+      id: "Split Payment",
+      label: "Split Payment",
+      description: "Half GPay / Cash or custom split",
+      icon: Split,
+      color: "text-indigo-700",
+      bgColor: "bg-indigo-50 hover:bg-indigo-100/70",
+      borderColor: "border-indigo-500",
+    },
+    {
+      id: "Nil",
+      label: "Nil (Item given - Payment pending)",
+      description: "Order served but payment not received yet",
+      icon: AlertCircle,
+      color: "text-amber-800",
+      bgColor: "bg-amber-50 hover:bg-amber-100/70",
+      borderColor: "border-amber-500",
+    },
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-3 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
       <div className="relative w-full max-w-lg rounded-2xl bg-white p-4 shadow-2xl transition-all sm:p-6 my-auto max-h-[90vh] flex flex-col min-w-0">
-
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
           <div>
-            <h3 className="text-lg font-bold text-gray-900 sm:text-xl">
-              Select Payment Method
-            </h3>
+            <h3 className="text-lg font-bold text-gray-900 sm:text-xl">Select Payment Method</h3>
             <p className="text-xs font-medium text-gray-500 sm:text-sm">
               Closing Order <span className="font-semibold text-black">{order.id}</span>
             </p>
@@ -172,14 +197,16 @@ export function CloseOrderModal({ order, onClose }: CloseOrderModalProps) {
             )}
           </div>
           <span className="text-xl font-extrabold text-white sm:text-2xl shrink-0">
-            ₹{payableTotal}
+            ₹{displayedTotal}
           </span>
         </div>
 
         <label className="mb-3 flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 sm:mb-4 sm:px-4">
           <span className="min-w-0">
             <span className="block text-xs font-bold text-gray-900 sm:text-sm">Takeaway order</span>
-            <span className="block text-[11px] text-gray-600 sm:text-xs">Add ₹10 takeaway charge</span>
+            <span className="block text-[11px] text-gray-600 sm:text-xs">
+              Add ₹10 takeaway charge
+            </span>
           </span>
           <input
             type="checkbox"
@@ -201,16 +228,13 @@ export function CloseOrderModal({ order, onClose }: CloseOrderModalProps) {
                   onClick={() => setSelectedMethod(opt.id)}
                   className={`flex w-full items-center justify-between rounded-xl border-2 p-3 text-left transition-all ${
                     opt.bgColor
-                  } ${
-                    isSelected
-                      ? opt.borderColor
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}
+                  } ${isSelected ? opt.borderColor : "border-gray-200 hover:border-gray-300"}`}
                 >
                   <div className="flex items-center gap-3 min-w-0 pr-2">
                     <div
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${isSelected ? "bg-white shadow-sm" : "bg-white/80"
-                        }`}
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+                        isSelected ? "bg-white shadow-sm" : "bg-white/80"
+                      }`}
                     >
                       <Icon className={`h-5 w-5 ${opt.color}`} />
                     </div>
@@ -225,15 +249,42 @@ export function CloseOrderModal({ order, onClose }: CloseOrderModalProps) {
                   </div>
                   <div className="shrink-0 pl-1">
                     <div
-                      className={`flex h-6 w-6 items-center justify-center rounded-full border ${isSelected
-                          ? "border-black bg-black text-white"
-                          : "border-gray-300 bg-white"
-                        }`}
+                      className={`flex h-6 w-6 items-center justify-center rounded-full border ${
+                        isSelected ? "border-black bg-black text-white" : "border-gray-300 bg-white"
+                      }`}
                     >
                       {isSelected && <Check className="h-3.5 w-3.5 stroke-[3]" />}
                     </div>
                   </div>
                 </button>
+
+                {/* Sub-inputs for Split Payment */}
+                {opt.id === "Online Orders" && isSelected && (
+                  <div className="mt-2.5 rounded-xl border border-purple-200 bg-purple-50/60 p-3 animate-in fade-in duration-150">
+                    <label className="block text-xs font-semibold text-purple-950 sm:text-sm">
+                      Online amount received (₹)
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        inputMode="decimal"
+                        required
+                        value={onlineAmount}
+                        onChange={(event) => setOnlineAmount(event.target.value)}
+                        className="mt-1.5 h-10 w-full rounded-lg border border-purple-200 bg-white px-3 text-sm font-bold text-gray-900 outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                      />
+                    </label>
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-purple-800">
+                      Enter the actual online selling amount. This amount will be saved as the order
+                      total for sales reports.
+                    </p>
+                    {onlineAmount.trim() !== "" && !isOnlineAmountValid && (
+                      <p className="mt-1 text-[11px] font-semibold text-rose-700">
+                        Enter an amount greater than ₹0.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Sub-inputs for Split Payment */}
                 {opt.id === "Split Payment" && isSelected && (
@@ -285,9 +336,7 @@ export function CloseOrderModal({ order, onClose }: CloseOrderModalProps) {
                         Combined Total: ₹{cashAmount + gpayAmount} / ₹{payableTotal}
                       </span>
                       {cashAmount + gpayAmount !== payableTotal ? (
-                        <span className="font-bold text-rose-600">
-                          Must equal ₹{payableTotal}
-                        </span>
+                        <span className="font-bold text-rose-600">Must equal ₹{payableTotal}</span>
                       ) : (
                         <span className="font-bold text-emerald-600 flex items-center gap-1">
                           <Check className="h-3 w-3" /> Balanced
@@ -302,7 +351,9 @@ export function CloseOrderModal({ order, onClose }: CloseOrderModalProps) {
                   <div className="mt-2.5 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-amber-900 animate-in fade-in duration-150">
                     <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                     <p className="text-[11px] leading-snug">
-                      This order will be moved to Past Orders marked as <strong className="font-semibold text-amber-950">Nil / Unpaid</strong>. You can view it under Past Orders.
+                      This order will be moved to Past Orders marked as{" "}
+                      <strong className="font-semibold text-amber-950">Nil / Unpaid</strong>. You
+                      can view it under Past Orders.
                     </p>
                   </div>
                 )}
@@ -322,7 +373,11 @@ export function CloseOrderModal({ order, onClose }: CloseOrderModalProps) {
           </button>
           <button
             type="button"
-            disabled={!isSplitValid || isSubmitting}
+            disabled={
+              !isSplitValid ||
+              (selectedMethod === "Online Orders" && !isOnlineAmountValid) ||
+              isSubmitting
+            }
             onClick={handleConfirm}
             className="flex items-center gap-1.5 rounded-xl bg-[#1177E5] px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-blue-600 active:scale-95 disabled:opacity-50 disabled:pointer-events-none transition-all sm:text-sm"
           >
