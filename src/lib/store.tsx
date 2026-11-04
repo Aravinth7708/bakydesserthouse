@@ -1,11 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import {
@@ -35,12 +28,7 @@ export type InventoryItem = {
 
 export type OrderStatus = "New" | "Preparing" | "Served" | "Past Orders";
 
-export type PaymentMethod =
-  | "Cash"
-  | "GPay"
-  | "Online Orders"
-  | "Split Payment"
-  | "Nil";
+export type PaymentMethod = "Cash" | "GPay" | "Online Orders" | "Split Payment" | "Nil";
 
 export type OrderLine = {
   name: string;
@@ -54,6 +42,11 @@ export type Order = {
   lines: OrderLine[];
   total: number;
   status: OrderStatus;
+  orderSource?: "Shop" | "Loyalty" | string;
+  customerName?: string;
+  customerPhone?: string;
+  fulfillmentType?: "Dine In" | "Takeaway" | string;
+  takeawayFee?: number;
   paymentMethod?: PaymentMethod | string;
   paymentDetails?: string;
   createdAt?: string;
@@ -614,7 +607,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           supabase.from("orders").select("*").order("created_at", { ascending: false }),
           supabase.from("staff").select("*").order("created_at", { ascending: true }),
           supabase.from("expenses").select("*").order("date", { ascending: false }),
-          supabase.from("staff_attendance").select("*").order("attendance_date", { ascending: false }),
+          supabase
+            .from("staff_attendance")
+            .select("*")
+            .order("attendance_date", { ascending: false }),
         ]);
 
         if (!mounted) return;
@@ -667,6 +663,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             lines: o.lines || [],
             total: Number(o.total),
             status: o.status as OrderStatus,
+            orderSource: o.order_source || "Shop",
+            customerName: o.customer_name || undefined,
+            customerPhone: o.customer_phone || undefined,
+            fulfillmentType: o.fulfillment_type || undefined,
+            takeawayFee: Number(o.takeaway_fee || 0),
             paymentMethod: o.payment_method || o.paymentMethod || undefined,
             paymentDetails: o.payment_details || o.paymentDetails || undefined,
             createdAt: o.created_at || new Date().toISOString(),
@@ -710,7 +711,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             notes: e.notes || undefined,
             receiptPath: e.receipt_path || undefined,
             receiptUrl: e.receipt_path
-              ? supabase.storage.from("expense-receipts").getPublicUrl(e.receipt_path).data.publicUrl
+              ? supabase.storage.from("expense-receipts").getPublicUrl(e.receipt_path).data
+                  .publicUrl
               : undefined,
             date: e.date,
             createdAt: e.created_at,
@@ -889,7 +891,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
 
         if (supabase && isSupabaseConfigured) {
-          await supabase.from("categories").delete().eq("id", targetId).then(() => { }, () => { });
+          await supabase
+            .from("categories")
+            .delete()
+            .eq("id", targetId)
+            .then(
+              () => {},
+              () => {},
+            );
         }
 
         toast.success("Category deleted");
@@ -919,9 +928,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        toast.success(
-          nextEnabled ? "Category enabled in POS" : "Category hidden from POS",
-        );
+        toast.success(nextEnabled ? "Category enabled in POS" : "Category hidden from POS");
       },
       addItem: async (input) => {
         const newItem: MenuItem = {
@@ -963,12 +970,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const next = prev.map((i) =>
             i.id === id || (targetName && i.name === targetName)
               ? {
-                ...i,
-                name: trimmed,
-                price: input.price,
-                categoryId: input.categoryId,
-                variants: input.variants,
-              }
+                  ...i,
+                  name: trimmed,
+                  price: input.price,
+                  categoryId: input.categoryId,
+                  variants: input.variants,
+                }
               : i,
           );
           setLocal(LOCAL_ITEM_KEY, next);
@@ -1013,7 +1020,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
 
         if (supabase && isSupabaseConfigured) {
-          await supabase.from("menu_items").delete().eq("id", targetId).then(() => { }, () => { });
+          await supabase
+            .from("menu_items")
+            .delete()
+            .eq("id", targetId)
+            .then(
+              () => {},
+              () => {},
+            );
         }
 
         toast.success("Item deleted");
@@ -1041,9 +1055,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
 
         toast.success(
-          nextEnabled
-            ? `"${target.name}" enabled in POS`
-            : `"${target.name}" hidden from POS`,
+          nextEnabled ? `"${target.name}" enabled in POS` : `"${target.name}" hidden from POS`,
         );
       },
       addInventoryItem: async (input) => {
@@ -1067,7 +1079,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               current: newInv.current,
               max: newInv.max,
             })
-            .then(() => { }, () => { });
+            .then(
+              () => {},
+              () => {},
+            );
         }
         toast.success(`Inventory item "${newInv.name}" added`);
       },
@@ -1076,9 +1091,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const current = Math.max(0, input.current);
         const max = Math.max(1, input.max);
         setInventory((prev) => {
-          const next = prev.map((n) =>
-            n.id === id ? { ...n, name: trimmed, current, max } : n,
-          );
+          const next = prev.map((n) => (n.id === id ? { ...n, name: trimmed, current, max } : n));
           setLocal(LOCAL_INV_KEY, next);
           return next;
         });
@@ -1087,7 +1100,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             .from("inventory")
             .update({ name: trimmed, current, max })
             .eq("id", id)
-            .then(() => { }, () => { });
+            .then(
+              () => {},
+              () => {},
+            );
         }
         toast.success(`"${trimmed}" stock updated`);
       },
@@ -1106,7 +1122,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             .from("inventory")
             .update({ current: safeCur, max: safeMax })
             .eq("id", id)
-            .then(() => { }, () => { });
+            .then(
+              () => {},
+              () => {},
+            );
         }
       },
       deleteInventoryItem: async (id: string) => {
@@ -1117,7 +1136,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return next;
         });
         if (supabase && isSupabaseConfigured) {
-          await supabase.from("inventory").delete().eq("id", id).then(() => { }, () => { });
+          await supabase
+            .from("inventory")
+            .delete()
+            .eq("id", id)
+            .then(
+              () => {},
+              () => {},
+            );
         }
         toast.success(`Inventory item "${target?.name || ""}" removed`);
       },
@@ -1129,18 +1155,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return isNaN(num) ? max : Math.max(max, num);
         }, 0);
         const nextNum = Math.max(maxNum + 1, orderNo);
-        const id = `#${String(nextNum).padStart(4, "0")}`;
+        let id = `#${String(nextNum).padStart(4, "0")}`;
+        let insertedByRpc = false;
+        if (supabase && isSupabaseConfigured) {
+          const { data, error } = await supabase.rpc("create_shop_order", {
+            p_lines: lines,
+            p_total: total,
+          });
+          if (!error && data) {
+            id = String(data);
+            insertedByRpc = true;
+          } else if (error && !isNetworkError(error)) {
+            console.error("Supabase order-number allocation error:", error);
+          }
+        }
         const createdAt = new Date().toISOString();
-        const newOrder: Order = { id, lines, total, status: "New", createdAt };
+        const newOrder: Order = {
+          id,
+          lines,
+          total,
+          status: "New",
+          orderSource: "Shop",
+          createdAt,
+        };
 
-        setOrderNo(nextNum + 1);
+        const actualNum = parseInt(id.replace(/\D/g, ""), 10);
+        setOrderNo(Math.max(nextNum, Number.isNaN(actualNum) ? 0 : actualNum) + 1);
         setOrders((prev) => {
           const next = [newOrder, ...prev.filter((o) => o.id !== id)];
           setLocal(LOCAL_ORDER_KEY, next);
           return next;
         });
 
-        if (supabase && isSupabaseConfigured) {
+        if (supabase && isSupabaseConfigured && !insertedByRpc) {
           const { error } = await supabase.from("orders").insert({
             id: newOrder.id,
             lines: newOrder.lines,
@@ -1162,9 +1209,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const nextStatus = flow[Math.min(idx + 1, flow.length - 1)];
 
         setOrders((prev) => {
-          const next = prev.map((o) =>
-            o.id === id ? { ...o, status: nextStatus } : o,
-          );
+          const next = prev.map((o) => (o.id === id ? { ...o, status: nextStatus } : o));
           setLocal(LOCAL_ORDER_KEY, next);
           return next;
         });
@@ -1174,7 +1219,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             .from("orders")
             .update({ status: nextStatus })
             .eq("id", id)
-            .then(() => { }, () => { });
+            .then(
+              () => {},
+              () => {},
+            );
         }
         toast.success(`Order ${id} moved to ${nextStatus}`);
       },
@@ -1209,9 +1257,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (error && !isNetworkError(error)) {
             await supabase
               .from("orders")
-              .update({ ...(orderTotal !== undefined ? { total: orderTotal } : {}), status: "Past Orders" })
+              .update({
+                ...(orderTotal !== undefined ? { total: orderTotal } : {}),
+                status: "Past Orders",
+              })
               .eq("id", id)
-              .then(() => { }, () => { });
+              .then(
+                () => {},
+                () => {},
+              );
           }
         }
         toast.success(`Order ${id} closed (${paymentMethod})`);
@@ -1224,7 +1278,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
 
         if (supabase && isSupabaseConfigured) {
-          await supabase.from("orders").delete().eq("id", id).then(() => { }, () => { });
+          await supabase
+            .from("orders")
+            .delete()
+            .eq("id", id)
+            .then(
+              () => {},
+              () => {},
+            );
         }
         toast.success(`Order ${id} deleted`);
       },
@@ -1260,7 +1321,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               phone: newStaff.phone,
               password: newStaff.password,
             })
-            .then(() => { }, () => { });
+            .then(
+              () => {},
+              () => {},
+            );
         }
         toast.success(`Staff member "${name}" added`);
       },
@@ -1270,9 +1334,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const password = input.password.trim();
 
         setStaff((prev) => {
-          const next = prev.map((s) =>
-            s.id === id ? { ...s, name, phone, password } : s,
-          );
+          const next = prev.map((s) => (s.id === id ? { ...s, name, phone, password } : s));
           setLocal(LOCAL_STAFF_KEY, next);
           return next;
         });
@@ -1282,7 +1344,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             .from("staff")
             .update({ name, phone, password })
             .eq("id", id)
-            .then(() => { }, () => { });
+            .then(
+              () => {},
+              () => {},
+            );
         }
         toast.success("Staff details updated");
       },
@@ -1295,7 +1360,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
 
         if (supabase && isSupabaseConfigured) {
-          await supabase.from("staff").delete().eq("id", id).then(() => { }, () => { });
+          await supabase
+            .from("staff")
+            .delete()
+            .eq("id", id)
+            .then(
+              () => {},
+              () => {},
+            );
         }
         toast.success(`Staff "${target?.name || ""}" removed`);
       },
@@ -1337,26 +1409,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           dailyPay: previousRecord?.dailyPay ?? DAILY_STAFF_PAY,
           createdAt: previousRecord?.createdAt ?? new Date().toISOString(),
         };
-        const pay = status === "Present"
-          ? { lateMinutes: 0, earlyLeaveMinutes: 0, deduction: 0, earned: record.dailyPay }
-          : status === "Absent"
-            ? { lateMinutes: 0, earlyLeaveMinutes: 0, deduction: record.dailyPay, earned: 0 }
-            : calculateAttendancePay(checkIn!, checkOut!, record.dailyPay);
+        const pay =
+          status === "Present"
+            ? { lateMinutes: 0, earlyLeaveMinutes: 0, deduction: 0, earned: record.dailyPay }
+            : status === "Absent"
+              ? { lateMinutes: 0, earlyLeaveMinutes: 0, deduction: record.dailyPay, earned: 0 }
+              : calculateAttendancePay(checkIn!, checkOut!, record.dailyPay);
         const salaryExpenseId = `attendance_salary_${date}_${staffId}`;
-        const salaryExpense: Expense | null = pay.earned > 0
-          ? {
-              id: salaryExpenseId,
-              title: `Daily salary - ${member.name}`,
-              category: "Salary",
-              amount: pay.earned,
-              paymentMethod: "Pending",
-              notes: status === "Present"
-                ? `Marked present; full shift wage ${record.dailyPay}.`
-                : `Late shift ${SHIFT_START}-${SHIFT_END}; check-in ${checkIn}; check-out ${checkOut}; late ${pay.lateMinutes} min; early departure ${pay.earlyLeaveMinutes} min; deduction INR ${pay.deduction.toFixed(2)}.`,
-              date,
-              createdAt: new Date().toISOString(),
-            }
-          : null;
+        const salaryExpense: Expense | null =
+          pay.earned > 0
+            ? {
+                id: salaryExpenseId,
+                title: `Daily salary - ${member.name}`,
+                category: "Salary",
+                amount: pay.earned,
+                paymentMethod: "Pending",
+                notes:
+                  status === "Present"
+                    ? `Marked present; full shift wage ${record.dailyPay}.`
+                    : `Late shift ${SHIFT_START}-${SHIFT_END}; check-in ${checkIn}; check-out ${checkOut}; late ${pay.lateMinutes} min; early departure ${pay.earlyLeaveMinutes} min; deduction INR ${pay.deduction.toFixed(2)}.`,
+                date,
+                createdAt: new Date().toISOString(),
+              }
+            : null;
 
         setAttendance((previous) => {
           const next = [...previous.filter((entry) => entry.id !== id), record];
@@ -1365,7 +1440,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
         setExpenses((previous) => {
           const withoutPreviousSalary = previous.filter((entry) => entry.id !== salaryExpenseId);
-          const next = salaryExpense ? [salaryExpense, ...withoutPreviousSalary] : withoutPreviousSalary;
+          const next = salaryExpense
+            ? [salaryExpense, ...withoutPreviousSalary]
+            : withoutPreviousSalary;
           setLocal(LOCAL_EXPENSE_KEY, next);
           return next;
         });
@@ -1399,7 +1476,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               )
             : await supabase.from("expenses").delete().eq("id", salaryExpenseId);
           if (attendanceResult.error || expenseResult.error) {
-            toast.error("Attendance saved on this device, but cloud sync failed. Check the attendance SQL migration.");
+            toast.error(
+              "Attendance saved on this device, but cloud sync failed. Check the attendance SQL migration.",
+            );
             return;
           }
         }
@@ -1427,7 +1506,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               upsert: false,
             });
           if (error) throw new Error(`Receipt upload failed: ${error.message}`);
-          receiptUrl = supabase.storage.from("expense-receipts").getPublicUrl(receiptPath).data.publicUrl;
+          receiptUrl = supabase.storage.from("expense-receipts").getPublicUrl(receiptPath)
+            .data.publicUrl;
         }
 
         const newExp: Expense = {
@@ -1450,18 +1530,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
 
         if (supabase && isSupabaseConfigured) {
-          const { error } = await supabase
-            .from("expenses")
-            .insert({
-              id: newExp.id,
-              title: newExp.title,
-              category: newExp.category,
-              amount: newExp.amount,
-              payment_method: newExp.paymentMethod,
-              notes: newExp.notes,
-              date: newExp.date,
-              receipt_path: newExp.receiptPath ?? null,
-            });
+          const { error } = await supabase.from("expenses").insert({
+            id: newExp.id,
+            title: newExp.title,
+            category: newExp.category,
+            amount: newExp.amount,
+            payment_method: newExp.paymentMethod,
+            notes: newExp.notes,
+            date: newExp.date,
+            receipt_path: newExp.receiptPath ?? null,
+          });
           if (error && newExp.receiptPath) {
             await supabase.storage.from("expense-receipts").remove([newExp.receiptPath]);
             setExpenses((prev) => {
@@ -1484,14 +1562,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const next = prev.map((e) =>
             e.id === id
               ? {
-                ...e,
-                title,
-                category: input.category,
-                amount: input.amount,
-                paymentMethod,
-                notes,
-                date,
-              }
+                  ...e,
+                  title,
+                  category: input.category,
+                  amount: input.amount,
+                  paymentMethod,
+                  notes,
+                  date,
+                }
               : e,
           );
           setLocal(LOCAL_EXPENSE_KEY, next);
@@ -1510,7 +1588,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               date,
             })
             .eq("id", id)
-            .then(() => { }, () => { });
+            .then(
+              () => {},
+              () => {},
+            );
         }
         toast.success(`Expense "${title}" updated`);
       },
@@ -1526,7 +1607,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (target?.receiptPath) {
             await supabase.storage.from("expense-receipts").remove([target.receiptPath]);
           }
-          await supabase.from("expenses").delete().eq("id", id).then(() => { }, () => { });
+          await supabase
+            .from("expenses")
+            .delete()
+            .eq("id", id)
+            .then(
+              () => {},
+              () => {},
+            );
         }
         toast.success(`Expense "${target?.title || ""}" deleted`);
       },
@@ -1535,29 +1623,52 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setLocal(LOCAL_EXPENSE_KEY, []);
 
         if (supabase && isSupabaseConfigured) {
-          await supabase.from("expenses").delete().neq("id", "___NONE___").then(() => { }, () => { });
+          await supabase
+            .from("expenses")
+            .delete()
+            .neq("id", "___NONE___")
+            .then(
+              () => {},
+              () => {},
+            );
         }
         toast.success("All expenses cleared");
       },
-      resetShopData: async (options = {
-        clearOrders: true,
-        clearExpenses: true,
-        resetMenu: true,
-        resetInventory: true,
-      }) => {
+      resetShopData: async (
+        options = {
+          clearOrders: true,
+          clearExpenses: true,
+          resetMenu: true,
+          resetInventory: true,
+        },
+      ) => {
         if (options.clearOrders) {
           setOrders([]);
           setOrderNo(1);
           setLocal(LOCAL_ORDER_KEY, []);
           if (supabase && isSupabaseConfigured) {
-            await supabase.from("orders").delete().neq("id", "___NONE___").then(() => { }, () => { });
+            await supabase
+              .from("orders")
+              .delete()
+              .neq("id", "___NONE___")
+              .then(
+                () => {},
+                () => {},
+              );
           }
         }
         if (options.clearExpenses) {
           setExpenses([]);
           setLocal(LOCAL_EXPENSE_KEY, []);
           if (supabase && isSupabaseConfigured) {
-            await supabase.from("expenses").delete().neq("id", "___NONE___").then(() => { }, () => { });
+            await supabase
+              .from("expenses")
+              .delete()
+              .neq("id", "___NONE___")
+              .then(
+                () => {},
+                () => {},
+              );
           }
         }
         if (options.resetMenu) {
@@ -1567,7 +1678,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           setLocal(LOCAL_ITEM_KEY, initialItems);
           if (supabase && isSupabaseConfigured) {
             for (const c of initialCategories) {
-              await supabase.from("categories").upsert(c).then(() => { }, () => { });
+              await supabase
+                .from("categories")
+                .upsert(c)
+                .then(
+                  () => {},
+                  () => {},
+                );
             }
             for (const i of initialItems) {
               await supabase
@@ -1580,7 +1697,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   variants: i.variants,
                   enabled: i.enabled,
                 })
-                .then(() => { }, () => { });
+                .then(
+                  () => {},
+                  () => {},
+                );
             }
           }
         }

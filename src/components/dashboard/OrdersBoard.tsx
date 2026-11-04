@@ -145,16 +145,24 @@ export function OrdersBoard() {
                   key={o.id}
                   className="grid grid-cols-4 items-center gap-2 px-1 py-3 text-xs font-medium text-black md:gap-3 md:py-4 md:text-base lg:gap-4 lg:px-2 lg:py-5 lg:text-xl"
                 >
-                  <div className="flex items-center gap-1.5 min-w-0 pr-1">
-                    <span className="truncate font-semibold text-gray-900">{o.id}</span>
-                    <button
-                      type="button"
-                      onClick={() => setViewingOrder(o)}
-                      className="p-1 text-gray-400 hover:text-[#1177E5] rounded-full hover:bg-blue-50 transition-colors shrink-0"
-                      title={`View details for order ${o.id}`}
-                    >
-                      <Info className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                    </button>
+                  <div className="min-w-0 pr-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate font-semibold text-gray-900">{o.id}</span>
+                      <button
+                        type="button"
+                        onClick={() => setViewingOrder(o)}
+                        className="shrink-0 rounded-full p-1 text-gray-400 transition-colors hover:bg-blue-50 hover:text-[#1177E5]"
+                        title={`View details for order ${o.id}`}
+                      >
+                        <Info className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                      </button>
+                    </div>
+                    {o.orderSource === "Loyalty" && (
+                      <p className="mt-0.5 truncate text-[9px] font-semibold text-[#31572e] sm:text-[10px]">
+                        {o.customerName || "Loyalty customer"}
+                        {o.fulfillmentType ? ` · ${o.fulfillmentType}` : ""}
+                      </p>
+                    )}
                   </div>
                   <span
                     className="truncate text-baky-muted cursor-pointer hover:text-gray-900 transition-colors"

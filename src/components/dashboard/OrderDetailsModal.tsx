@@ -1,5 +1,19 @@
 import { Order, OrderStatus } from "@/lib/store";
-import { X, Info, ShoppingBag, CreditCard, Banknote, Smartphone, Globe, Split, AlertCircle, CheckCircle2, Clock, ChefHat, Check } from "lucide-react";
+import {
+  X,
+  Info,
+  ShoppingBag,
+  CreditCard,
+  Banknote,
+  Smartphone,
+  Globe,
+  Split,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  ChefHat,
+  Check,
+} from "lucide-react";
 
 interface OrderDetailsModalProps {
   order: Order | null;
@@ -90,7 +104,9 @@ export function OrderDetailsModal({ order, onClose }: OrderDetailsModalProps) {
             <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
             <div>
               <p className="text-xs font-bold">Nil / Unpaid Order</p>
-              <p className="text-[11px] text-amber-700">{order.paymentDetails || "Item delivered without payment"}</p>
+              <p className="text-[11px] text-amber-700">
+                {order.paymentDetails || "Item delivered without payment"}
+              </p>
             </div>
           </div>
         );
@@ -100,7 +116,9 @@ export function OrderDetailsModal({ order, onClose }: OrderDetailsModalProps) {
             <CreditCard className="h-5 w-5 text-gray-600 shrink-0" />
             <div>
               <p className="text-xs font-bold">Payment Method: {order.paymentMethod}</p>
-              {order.paymentDetails && <p className="text-[11px] text-gray-600">{order.paymentDetails}</p>}
+              {order.paymentDetails && (
+                <p className="text-[11px] text-gray-600">{order.paymentDetails}</p>
+              )}
             </div>
           </div>
         );
@@ -108,11 +126,11 @@ export function OrderDetailsModal({ order, onClose }: OrderDetailsModalProps) {
   };
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-3 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200"
       onClick={onClose}
     >
-      <div 
+      <div
         className="relative w-full max-w-lg rounded-2xl bg-white p-4 shadow-2xl transition-all sm:p-6 my-auto max-h-[90vh] flex flex-col min-w-0"
         onClick={(e) => e.stopPropagation()}
       >
@@ -129,9 +147,7 @@ export function OrderDetailsModal({ order, onClose }: OrderDetailsModalProps) {
                 </h3>
                 {getStatusBadge(order.status)}
               </div>
-              <p className="text-xs font-medium text-gray-500">
-                Detailed Order Breakdown
-              </p>
+              <p className="text-xs font-medium text-gray-500">Detailed Order Breakdown</p>
             </div>
           </div>
           <button
@@ -142,12 +158,21 @@ export function OrderDetailsModal({ order, onClose }: OrderDetailsModalProps) {
           </button>
         </div>
 
-        {/* Payment Method Banner (if closed / payment recorded) */}
-        {order.paymentMethod && (
-          <div className="mt-3">
-            {getPaymentBadge()}
+        {order.orderSource === "Loyalty" && (
+          <div className="mt-3 rounded-xl bg-emerald-50 p-3 text-xs text-emerald-950">
+            <p className="font-bold">Customer order · {order.customerName || "Loyalty customer"}</p>
+            {order.customerPhone && <p className="mt-1">{order.customerPhone}</p>}
+            {order.fulfillmentType && (
+              <p className="mt-1">
+                {order.fulfillmentType}
+                {Number(order.takeawayFee) > 0 ? ` · Takeaway charge ₹${order.takeawayFee}` : ""}
+              </p>
+            )}
           </div>
         )}
+
+        {/* Payment Method Banner (if closed / payment recorded) */}
+        {order.paymentMethod && <div className="mt-3">{getPaymentBadge()}</div>}
 
         {/* Items List */}
         <div className="my-3 flex-1 overflow-y-auto pr-1">
@@ -180,18 +205,20 @@ export function OrderDetailsModal({ order, onClose }: OrderDetailsModalProps) {
 
         {/* Grand Total Footer */}
         <div className="border-t border-gray-100 pt-3">
+          {Number(order.takeawayFee) > 0 && (
+            <div className="mb-3 flex items-center justify-between px-1 text-xs text-gray-600">
+              <span>Takeaway charge</span>
+              <span className="font-semibold text-gray-900">₹{order.takeawayFee}</span>
+            </div>
+          )}
           <div className="flex items-center justify-between rounded-xl bg-gray-900 p-3 text-white sm:p-4 shadow-md">
             <div>
               <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">
                 Grand Total
               </p>
-              <p className="text-xs text-gray-300 font-normal">
-                Includes all taxes & items
-              </p>
+              <p className="text-xs text-gray-300 font-normal">Includes all taxes & items</p>
             </div>
-            <span className="text-2xl font-black text-white">
-              ₹{order.total}
-            </span>
+            <span className="text-2xl font-black text-white">₹{order.total}</span>
           </div>
 
           <div className="mt-3 flex justify-end">

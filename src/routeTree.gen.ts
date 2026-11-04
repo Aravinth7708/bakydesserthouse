@@ -12,10 +12,13 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as AttendanceRouteImport } from './routes/attendance'
+import { Route as CustomerRouteImport } from './routes/customer'
 import { Route as ExpensesRouteImport } from './routes/expenses'
 import { Route as FinancialReportRouteImport } from './routes/financial-report'
 import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as LoyaltyRouteImport } from './routes/loyalty'
+import { Route as LoyaltyOrdersRouteImport } from './routes/loyalty-orders'
 import { Route as ManageRouteImport } from './routes/manage'
 import { Route as MenuRouteImport } from './routes/menu'
 import { Route as OrdersRouteImport } from './routes/orders'
@@ -36,6 +39,11 @@ const AttendanceRoute = AttendanceRouteImport.update({
   path: '/attendance',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CustomerRoute = CustomerRouteImport.update({
+  id: '/customer',
+  path: '/customer',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ExpensesRoute = ExpensesRouteImport.update({
   id: '/expenses',
   path: '/expenses',
@@ -54,6 +62,16 @@ const InventoryRoute = InventoryRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoyaltyRoute = LoyaltyRouteImport.update({
+  id: '/loyalty',
+  path: '/loyalty',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoyaltyOrdersRoute = LoyaltyOrdersRouteImport.update({
+  id: '/loyalty-orders',
+  path: '/loyalty-orders',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ManageRoute = ManageRouteImport.update({
@@ -81,10 +99,13 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/analysis': typeof AnalysisRoute
   '/attendance': typeof AttendanceRoute
+  '/customer': typeof CustomerRoute
   '/expenses': typeof ExpensesRoute
   '/financial-report': typeof FinancialReportRoute
   '/inventory': typeof InventoryRoute
   '/login': typeof LoginRoute
+  '/loyalty': typeof LoyaltyRoute
+  '/loyalty-orders': typeof LoyaltyOrdersRoute
   '/manage': typeof ManageRoute
   '/menu': typeof MenuRoute
   '/orders': typeof OrdersRoute
@@ -94,10 +115,13 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/analysis': typeof AnalysisRoute
   '/attendance': typeof AttendanceRoute
+  '/customer': typeof CustomerRoute
   '/expenses': typeof ExpensesRoute
   '/financial-report': typeof FinancialReportRoute
   '/inventory': typeof InventoryRoute
   '/login': typeof LoginRoute
+  '/loyalty': typeof LoyaltyRoute
+  '/loyalty-orders': typeof LoyaltyOrdersRoute
   '/manage': typeof ManageRoute
   '/menu': typeof MenuRoute
   '/orders': typeof OrdersRoute
@@ -108,10 +132,13 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/analysis': typeof AnalysisRoute
   '/attendance': typeof AttendanceRoute
+  '/customer': typeof CustomerRoute
   '/expenses': typeof ExpensesRoute
   '/financial-report': typeof FinancialReportRoute
   '/inventory': typeof InventoryRoute
   '/login': typeof LoginRoute
+  '/loyalty': typeof LoyaltyRoute
+  '/loyalty-orders': typeof LoyaltyOrdersRoute
   '/manage': typeof ManageRoute
   '/menu': typeof MenuRoute
   '/orders': typeof OrdersRoute
@@ -123,10 +150,13 @@ export interface FileRouteTypes {
     | '/'
     | '/analysis'
     | '/attendance'
+    | '/customer'
     | '/expenses'
     | '/financial-report'
     | '/inventory'
     | '/login'
+    | '/loyalty'
+    | '/loyalty-orders'
     | '/manage'
     | '/menu'
     | '/orders'
@@ -136,10 +166,13 @@ export interface FileRouteTypes {
     | '/'
     | '/analysis'
     | '/attendance'
+    | '/customer'
     | '/expenses'
     | '/financial-report'
     | '/inventory'
     | '/login'
+    | '/loyalty'
+    | '/loyalty-orders'
     | '/manage'
     | '/menu'
     | '/orders'
@@ -149,10 +182,13 @@ export interface FileRouteTypes {
     | '/'
     | '/analysis'
     | '/attendance'
+    | '/customer'
     | '/expenses'
     | '/financial-report'
     | '/inventory'
     | '/login'
+    | '/loyalty'
+    | '/loyalty-orders'
     | '/manage'
     | '/menu'
     | '/orders'
@@ -163,10 +199,13 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AnalysisRoute: typeof AnalysisRoute
   AttendanceRoute: typeof AttendanceRoute
+  CustomerRoute: typeof CustomerRoute
   ExpensesRoute: typeof ExpensesRoute
   FinancialReportRoute: typeof FinancialReportRoute
   InventoryRoute: typeof InventoryRoute
   LoginRoute: typeof LoginRoute
+  LoyaltyRoute: typeof LoyaltyRoute
+  LoyaltyOrdersRoute: typeof LoyaltyOrdersRoute
   ManageRoute: typeof ManageRoute
   MenuRoute: typeof MenuRoute
   OrdersRoute: typeof OrdersRoute
@@ -196,6 +235,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AttendanceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/customer': {
+      id: '/customer'
+      path: '/customer'
+      fullPath: '/customer'
+      preLoaderRoute: typeof CustomerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/expenses': {
       id: '/expenses'
       path: '/expenses'
@@ -222,6 +268,20 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/loyalty': {
+      id: '/loyalty'
+      path: '/loyalty'
+      fullPath: '/loyalty'
+      preLoaderRoute: typeof LoyaltyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/loyalty-orders': {
+      id: '/loyalty-orders'
+      path: '/loyalty-orders'
+      fullPath: '/loyalty-orders'
+      preLoaderRoute: typeof LoyaltyOrdersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/manage': {
@@ -259,10 +319,13 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AnalysisRoute: AnalysisRoute,
   AttendanceRoute: AttendanceRoute,
+  CustomerRoute: CustomerRoute,
   ExpensesRoute: ExpensesRoute,
   FinancialReportRoute: FinancialReportRoute,
   InventoryRoute: InventoryRoute,
   LoginRoute: LoginRoute,
+  LoyaltyRoute: LoyaltyRoute,
+  LoyaltyOrdersRoute: LoyaltyOrdersRoute,
   ManageRoute: ManageRoute,
   MenuRoute: MenuRoute,
   OrdersRoute: OrdersRoute,
