@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Bell,
   CheckCheck,
   Clock3,
   LoaderCircle,
@@ -10,6 +11,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { supabase } from "@/lib/supabase";
 import {
   loadLoyaltyOperations,
   updateLoyaltyClaim,
@@ -33,10 +35,59 @@ export function LoyaltyOperationsBoard() {
   const [isLoading, setIsLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
+  const [notificationPermission, setNotificationPermission] = useState<
+    NotificationPermission | "unsupported"
+  >(() =>
+    typeof window !== "undefined" && "Notification" in window
+      ? Notification.permission
+      : "unsupported",
+  );
+  const knownOrderIds = useRef(new Set<string>());
+  const initialOrdersLoaded = useRef(false);
+
+  const notifyNewOrder = useCallback(async (order: LoyaltyOrder) => {
+    if (
+      typeof window === "undefined" ||
+      !("Notification" in window) ||
+      Notification.permission !== "granted"
+    )
+      return;
+    const customerName = order.customer_name || "A customer";
+    const itemCount = order.items.reduce((total, item) => total + item.qty, 0);
+    const title = "New customer order";
+    const body = `${customerName} sent an order with ${itemCount} ${itemCount === 1 ? "item" : "items"} · ${money(order.total)}`;
+    try {
+      const registration =
+        "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration() : undefined;
+      if (registration) {
+        await registration.showNotification(title, {
+          body,
+          icon: "/baky-logo.png",
+          badge: "/baky-logo.png",
+          tag: `loyalty-new-order-${order.id}`,
+          data: { url: "/loyalty-orders" },
+        });
+      } else {
+        new Notification(title, { body, tag: `loyalty-new-order-${order.id}` });
+      }
+    } catch (notificationError) {
+      console.warn("Could not show a staff order notification", notificationError);
+    }
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
       const next = await loadLoyaltyOperations();
+      if (!initialOrdersLoaded.current) {
+        next.orders.forEach((order) => knownOrderIds.current.add(order.id));
+        initialOrdersLoaded.current = true;
+      } else {
+        const incomingOrders = next.orders.filter(
+          (order) => !knownOrderIds.current.has(order.id) && order.status !== "Cancelled",
+        );
+        next.orders.forEach((order) => knownOrderIds.current.add(order.id));
+        incomingOrders.forEach((order) => void notifyNewOrder(order));
+      }
       setData(next);
       setError("");
     } catch (loadError) {
@@ -44,13 +95,38 @@ export function LoyaltyOperationsBoard() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [notifyNewOrder]);
 
   useEffect(() => {
     void refresh();
     const timer = window.setInterval(() => void refresh(), 20000);
-    return () => window.clearInterval(timer);
+    const channel = supabase
+      ?.channel("staff-loyalty-new-orders")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "loyalty_orders" },
+        () => void refresh(),
+      )
+      .subscribe();
+    return () => {
+      window.clearInterval(timer);
+      if (channel) void supabase?.removeChannel(channel);
+    };
   }, [refresh]);
+
+  const enableNotifications = async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+    try {
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+    } catch (permissionError) {
+      console.warn("Could not request staff notification permission", permissionError);
+      setNotificationPermission(Notification.permission);
+    }
+  };
 
   const customerById = useMemo(
     () => new Map(data.customers.map((customer) => [customer.id, customer])),
@@ -119,13 +195,37 @@ export function LoyaltyOperationsBoard() {
               Confirm the customer in person, prepare orders, and redeem brownie claims.
             </p>
           </div>
-          <button
-            onClick={() => void refresh()}
-            className="flex h-10 items-center gap-2 rounded-xl border border-black/10 bg-white px-3 text-xs font-bold text-gray-700 hover:bg-gray-50"
-            aria-label="Refresh orders"
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} /> Refresh
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => void enableNotifications()}
+              disabled={
+                notificationPermission === "unsupported" || notificationPermission === "granted"
+              }
+              className="flex h-10 items-center gap-2 rounded-xl border border-black/10 bg-white px-3 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:cursor-default disabled:opacity-70"
+              aria-label="Enable new customer order notifications"
+              title={
+                notificationPermission === "denied"
+                  ? "Allow notifications in your browser settings"
+                  : undefined
+              }
+            >
+              <Bell className="h-4 w-4" />
+              {notificationPermission === "granted"
+                ? "Alerts on"
+                : notificationPermission === "denied"
+                  ? "Alerts blocked"
+                  : notificationPermission === "unsupported"
+                    ? "Alerts unavailable"
+                    : "Enable order alerts"}
+            </button>
+            <button
+              onClick={() => void refresh()}
+              className="flex h-10 items-center gap-2 rounded-xl border border-black/10 bg-white px-3 text-xs font-bold text-gray-700 hover:bg-gray-50"
+              aria-label="Refresh orders"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} /> Refresh
+            </button>
+          </div>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
           <SmallStat label="New orders" value={newOrders.length} tone="blue" />
