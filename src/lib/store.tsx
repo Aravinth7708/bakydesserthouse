@@ -94,10 +94,31 @@ export type UserRole = "Admin" | "Staff";
 export type ExpenseCategory =
   | "Fuel"
   | "Stock / Ingredients"
-  | "Water & Utilities"
+  | "Water"
   | "Maintenance & Repair"
   | "Salary"
-  | "Other";
+  | "Viveka Agencies"
+  | "Others";
+
+function normalizeExpenseCategory(value: unknown): ExpenseCategory {
+  const category = String(value || "").trim();
+  if (category === "Water & Utilities") return "Water";
+  if (category === "Other" || !category) return "Others";
+  if (
+    [
+      "Fuel",
+      "Stock / Ingredients",
+      "Water",
+      "Maintenance & Repair",
+      "Salary",
+      "Viveka Agencies",
+      "Others",
+    ].includes(category)
+  ) {
+    return category as ExpenseCategory;
+  }
+  return "Others";
+}
 
 export type Expense = {
   id: string;
@@ -442,7 +463,7 @@ const initialExpenses: Expense[] = [
   {
     id: "e3",
     title: "20L Drinking Water Cans (10 Units)",
-    category: "Water & Utilities",
+    category: "Water",
     amount: 350,
     paymentMethod: "Cash",
     date: new Date().toISOString().split("T")[0],
@@ -564,7 +585,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setItems(validItems);
     setInventory(Array.isArray(savedInv) && savedInv.length > 0 ? savedInv : initialInventory);
     setOrders(Array.isArray(savedOrders) ? savedOrders : initialOrders);
-    setExpenses(Array.isArray(savedExpenses) ? savedExpenses : initialExpenses);
+    const normalizedExpenses = (Array.isArray(savedExpenses) ? savedExpenses : initialExpenses).map(
+      (expense) => ({ ...expense, category: normalizeExpenseCategory(expense.category) }),
+    );
+    setExpenses(normalizedExpenses);
+    setLocal(LOCAL_EXPENSE_KEY, normalizedExpenses);
 
     if (Array.isArray(savedOrders) && savedOrders.length > 0) {
       const maxNum = savedOrders.reduce((max: number, o: any) => {
@@ -743,7 +768,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const loadedExp = expRes.data.map((e: any) => ({
             id: e.id,
             title: e.title,
-            category: (e.category as ExpenseCategory) || "Other",
+            category: normalizeExpenseCategory(e.category),
             amount: Number(e.amount),
             paymentMethod: e.payment_method || "Cash",
             notes: e.notes || undefined,

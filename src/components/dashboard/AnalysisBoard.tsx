@@ -55,12 +55,13 @@ function orderDate(order: Order) {
 }
 
 function analysisExpenseCategory(expense: Expense) {
-  if (expense.category !== "Other") return expense.category;
+  if (expense.category !== "Others") return expense.category;
   const details = `${expense.title} ${expense.notes || ""}`.toLowerCase();
   if (/\b(fuel|petrol|diesel|gasoline)\b/.test(details)) return "Fuel";
   if (/\b(salary|wage|payroll|staff pay|attendance)\b/.test(details)) return "Salary";
+  if (/\b(viveka|agency|agencies)\b/.test(details)) return "Viveka Agencies";
   if (/\b(water|electricity|electric|utility|utilities|power bill)\b/.test(details)) {
-    return "Water & Utilities";
+    return "Water";
   }
   if (/\b(repair|maintenance|service charge)\b/.test(details)) return "Maintenance & Repair";
   if (/\b(stock|ingredient|chocolate|flour|sugar|milk|cream|butter)\b/.test(details)) {

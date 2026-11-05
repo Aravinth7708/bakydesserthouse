@@ -5,10 +5,11 @@ import { Plus, Trash2, Search, Calendar, Receipt, X, TrendingDown, ImagePlus } f
 const expenseCategories: ExpenseCategory[] = [
   "Fuel",
   "Stock / Ingredients",
-  "Water & Utilities",
+  "Water",
   "Maintenance & Repair",
   "Salary",
-  "Other",
+  "Viveka Agencies",
+  "Others",
 ];
 
 type DateFilter = "All dates" | "Today" | "Yesterday" | "This month" | "Last month";
@@ -42,7 +43,7 @@ export function ExpensesBoard() {
   const [amount, setAmount] = useState<string>("");
   const [date, setDate] = useState<string>(() => localDateKey(new Date()));
   const [notes, setNotes] = useState("");
-  const [category, setCategory] = useState<ExpenseCategory>("Other");
+  const [category, setCategory] = useState<ExpenseCategory>("Others");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState("");
   const [formError, setFormError] = useState("");
@@ -120,7 +121,7 @@ export function ExpensesBoard() {
     setAmount("");
     setDate(localDateKey(new Date()));
     setNotes("");
-    setCategory("Other");
+    setCategory("Others");
     setReceiptFile(null);
     setFormError("");
     setIsModalOpen(true);
