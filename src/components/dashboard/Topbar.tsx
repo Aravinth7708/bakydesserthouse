@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Bell, Settings, ChevronDown, UserCheck, ShieldCheck, RefreshCw } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useStore, type DateRangeFilter } from "@/lib/store";
+import { supabase } from "@/lib/supabase";
 import { SwitchUserModal } from "./SwitchUserModal";
 
 const DATE_RANGES: DateRangeFilter[] = ["Today", "Last 7 Days", "Last 30 Days", "All Time"];
@@ -11,12 +12,203 @@ export function Topbar({ title = "Dashboard" }: { title?: string }) {
   const [isSwitchModalOpen, setIsSwitchModalOpen] = useState(false);
   const [showDateMenu, setShowDateMenu] = useState(false);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<
+    NotificationPermission | "unsupported"
+  >(() =>
+    typeof window !== "undefined" && "Notification" in window
+      ? Notification.permission
+      : "unsupported",
+  );
   const navigate = useNavigate();
 
   const isStaff = currentUser?.role === "Staff";
+  const isAdmin = currentUser?.role === "Admin";
   const activeOrders = orders.filter((o) => o.status !== "Past Orders");
   const lowStock = inventory.filter((i) => i.current <= Math.max(2, Math.round(i.max * 0.3)));
   const notifCount = activeOrders.length + lowStock.length;
+
+  useEffect(() => {
+    if (!isAdmin || !supabase) return;
+    if ("Notification" in window) setNotificationPermission(Notification.permission);
+
+    const notify = async (title: string, body: string, url: string) => {
+      if (!("Notification" in window) || Notification.permission !== "granted") return;
+      try {
+        const registration =
+          "serviceWorker" in navigator
+            ? await navigator.serviceWorker.getRegistration()
+            : undefined;
+        if (registration) {
+          await registration.showNotification(title, {
+            body,
+            icon: "/baky-app-192.png",
+            badge: "/baky-app-192.png",
+            tag: `${title}-${Date.now()}`,
+            data: { url },
+          });
+        } else {
+          new Notification(title, { body });
+        }
+      } catch (notificationError) {
+        console.warn("Could not show an admin activity notification", notificationError);
+      }
+    };
+
+    const channel = supabase
+      .channel("admin-mobile-activity-notifications")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "loyalty_orders" },
+        (payload) => {
+          const order = payload.new as { id?: string; customer_name?: string; total?: number };
+          void notify(
+            "New customer order",
+            `${order.customer_name || "A customer"} placed an order · ₹${Math.round(Number(order.total || 0))}`,
+            "/loyalty-orders",
+          );
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "loyalty_orders" },
+        (payload) => {
+          const order = payload.new as { id?: string; status?: string; customer_name?: string };
+          const status = String(order.status || "Updated");
+          void notify(
+            `Customer order ${status.toLowerCase()}`,
+            `${order.customer_name || "Customer order"}${order.id ? ` · #${order.id.slice(0, 8).toUpperCase()}` : ""}`,
+            "/loyalty-orders",
+          );
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "loyalty_orders" },
+        () =>
+          void notify(
+            "Customer order removed",
+            "A customer order was cancelled or removed.",
+            "/loyalty-orders",
+          ),
+      )
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders" }, (payload) => {
+        const order = payload.new as { id?: string; total?: number; order_source?: string };
+        if (order.order_source === "Loyalty") return;
+        void notify(
+          "New shop order",
+          `Order ${order.id ? `#${order.id}` : "received"} · ₹${Math.round(Number(order.total || 0))}`,
+          "/orders",
+        );
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "orders" }, () => {
+        void notify(
+          "Shop order removed",
+          "An order was removed from the shop order list.",
+          "/orders",
+        );
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders" }, (payload) => {
+        const order = payload.new as { id?: string; status?: string; order_source?: string };
+        if (order.order_source === "Loyalty") return;
+        void notify(
+          "Order status updated",
+          `Order ${order.id ? `#${order.id}` : "order"} · ${order.status || "updated"}`,
+          "/orders",
+        );
+      })
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "expenses" },
+        (payload) => {
+          const expense = payload.new as { title?: string; amount?: number; category?: string };
+          void notify(
+            "New expense recorded",
+            `${expense.title || expense.category || "Expense"} · ₹${Math.round(Number(expense.amount || 0))}`,
+            "/expenses",
+          );
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "expenses" },
+        (payload) => {
+          const expense = payload.new as { title?: string; amount?: number; category?: string };
+          void notify(
+            "Expense updated",
+            `${expense.title || expense.category || "Expense"} · ₹${Math.round(Number(expense.amount || 0))}`,
+            "/expenses",
+          );
+        },
+      )
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "expenses" }, () => {
+        void notify("Expense removed", "An expense record was deleted.", "/expenses");
+      })
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "staff_attendance" },
+        (payload) => {
+          const attendance = payload.new as { staff_name?: string; attendance_status?: string };
+          void notify(
+            "Staff attendance updated",
+            `${attendance.staff_name || "Staff"} · ${attendance.attendance_status || "attendance marked"}`,
+            "/attendance",
+          );
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "staff_attendance" },
+        (payload) => {
+          const attendance = payload.new as { staff_name?: string; attendance_status?: string };
+          void notify(
+            "Staff attendance changed",
+            `${attendance.staff_name || "Staff"} · ${attendance.attendance_status || "attendance updated"}`,
+            "/attendance",
+          );
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "loyalty_reward_claims" },
+        () => {
+          void notify(
+            "New brownie reward claim",
+            "A customer requested a free brownie.",
+            "/loyalty-orders",
+          );
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "loyalty_reward_claims" },
+        (payload) => {
+          const claim = payload.new as { status?: string; reward_name?: string };
+          void notify(
+            "Brownie reward claim updated",
+            `${claim.reward_name || "Brownie claim"} · ${claim.status || "updated"}`,
+            "/loyalty-orders",
+          );
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [isAdmin]);
+
+  const enableAdminNotifications = async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+    try {
+      setNotificationPermission(await Notification.requestPermission());
+    } catch (permissionError) {
+      console.warn("Could not request admin notification permission", permissionError);
+      setNotificationPermission(Notification.permission);
+    }
+  };
 
   return (
     <>
@@ -100,6 +292,33 @@ export function Topbar({ title = "Dashboard" }: { title?: string }) {
                 <p className="border-b border-baky-muted/20 pb-2 text-xs font-semibold text-black">
                   Alerts ({notifCount})
                 </p>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => void enableAdminNotifications()}
+                    disabled={
+                      notificationPermission === "granted" ||
+                      notificationPermission === "unsupported"
+                    }
+                    className="mt-2 flex min-h-10 w-full items-center justify-between gap-2 rounded-lg border border-black/5 bg-white px-2.5 py-2 text-left text-[11px] font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-default disabled:opacity-70"
+                    title={
+                      notificationPermission === "denied"
+                        ? "Allow notifications in browser or device settings"
+                        : undefined
+                    }
+                  >
+                    <span>Mobile activity alerts</span>
+                    <span className="text-[#31572e]">
+                      {notificationPermission === "granted"
+                        ? "Enabled"
+                        : notificationPermission === "denied"
+                          ? "Blocked"
+                          : notificationPermission === "unsupported"
+                            ? "Unavailable"
+                            : "Enable"}
+                    </span>
+                  </button>
+                )}
                 {notifCount === 0 ? (
                   <p className="py-3 text-center text-xs text-baky-muted">
                     All caught up! No pending alerts.
