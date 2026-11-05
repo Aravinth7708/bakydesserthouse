@@ -30,7 +30,8 @@ function matchesDateFilter(date: string, filter: DateFilter) {
 }
 
 export function ExpensesBoard() {
-  const { expenses, addExpense, deleteExpense } = useStore();
+  const { expenses, addExpense, deleteExpense, currentUser } = useStore();
+  const isStaff = currentUser?.role === "Staff";
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState<DateFilter>("Today");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -39,7 +40,7 @@ export function ExpensesBoard() {
   // Form State
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState<string>("");
-  const [date, setDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState<string>(() => localDateKey(new Date()));
   const [notes, setNotes] = useState("");
   const [category, setCategory] = useState<ExpenseCategory>("Other");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
@@ -57,7 +58,15 @@ export function ExpensesBoard() {
   }, [receiptFile]);
 
   // Summary Metrics
-  const totalAmount = useMemo(() => expenses.reduce((sum, e) => sum + e.amount, 0), [expenses]);
+  const summaryExpenses = useMemo(
+    () =>
+      isStaff ? expenses.filter((expense) => matchesDateFilter(expense.date, "Today")) : expenses,
+    [expenses, isStaff],
+  );
+  const totalAmount = useMemo(
+    () => summaryExpenses.reduce((sum, expense) => sum + expense.amount, 0),
+    [summaryExpenses],
+  );
 
   // Filtered List
   const filteredExpenses = useMemo(() => {
@@ -67,13 +76,13 @@ export function ExpensesBoard() {
           e.title.toLowerCase().includes(search.toLowerCase()) ||
           (e.notes && e.notes.toLowerCase().includes(search.toLowerCase())) ||
           e.category.toLowerCase().includes(search.toLowerCase());
-        return matchesSearch && matchesDateFilter(e.date, dateFilter);
+        return matchesSearch && matchesDateFilter(e.date, isStaff ? "Today" : dateFilter);
       })
       .sort(
         (a, b) =>
           b.date.localeCompare(a.date) || (b.createdAt || "").localeCompare(a.createdAt || ""),
       );
-  }, [expenses, search, dateFilter]);
+  }, [expenses, search, dateFilter, isStaff]);
 
   const expenseDateGroups = useMemo(() => {
     const now = new Date();
@@ -109,7 +118,7 @@ export function ExpensesBoard() {
   const handleOpenModal = () => {
     setTitle("");
     setAmount("");
-    setDate(new Date().toISOString().split("T")[0]);
+    setDate(localDateKey(new Date()));
     setNotes("");
     setCategory("Other");
     setReceiptFile(null);
@@ -130,7 +139,7 @@ export function ExpensesBoard() {
         category,
         amount: numAmount,
         paymentMethod: "Cash",
-        date,
+        date: isStaff ? localDateKey(new Date()) : date,
         notes: notes.trim(),
         receiptFile: receiptFile ?? undefined,
       });
@@ -159,7 +168,7 @@ export function ExpensesBoard() {
           </div>
           <div className="min-w-0">
             <p className="text-xs font-bold text-baky-muted uppercase tracking-wider sm:text-sm">
-              Total Expenses
+              {isStaff ? "Today’s Expenses" : "Total Expenses"}
             </p>
             <p className="text-2xl font-black text-black sm:text-3xl lg:text-4xl mt-0.5">
               ₹{totalAmount.toLocaleString("en-IN")}
@@ -173,7 +182,7 @@ export function ExpensesBoard() {
               Expense Records
             </p>
             <p className="text-sm sm:text-base font-extrabold text-black">
-              {expenses.length} Total
+              {isStaff ? summaryExpenses.length : expenses.length} Total
             </p>
           </div>
         </div>
@@ -216,21 +225,34 @@ export function ExpensesBoard() {
             <label className="flex h-10 items-center gap-2 rounded-xl border border-baky-muted/30 bg-white px-3 text-xs font-semibold text-black sm:text-sm">
               <Calendar className="h-4 w-4 text-baky-muted" />
               <span className="sr-only">Filter expenses by date</span>
-              <select
-                value={dateFilter}
-                onChange={(event) => setDateFilter(event.target.value as DateFilter)}
-                className="max-w-[220px] bg-transparent outline-none"
-              >
-                <option value="All dates">All dates</option>
-                <option value="Today">Today</option>
-                <option value="Yesterday">Yesterday</option>
-                <option value="This month">This month</option>
-                <option value="Last month">Last month</option>
-              </select>
+              {isStaff ? (
+                <span className="font-bold">Today only</span>
+              ) : (
+                <select
+                  value={dateFilter}
+                  onChange={(event) => setDateFilter(event.target.value as DateFilter)}
+                  className="max-w-[220px] bg-transparent outline-none"
+                >
+                  <option value="All dates">All dates</option>
+                  <option value="Today">Today</option>
+                  <option value="Yesterday">Yesterday</option>
+                  <option value="This month">This month</option>
+                  <option value="Last month">Last month</option>
+                </select>
+              )}
             </label>
             <p className="text-xs text-baky-muted">
-              Showing <span className="font-bold text-black">{filteredExpenses.length}</span> of{" "}
-              {expenses.length} records · newest first
+              {isStaff ? (
+                <>
+                  Showing <span className="font-bold text-black">{filteredExpenses.length}</span> of
+                  today’s expenses · newest first
+                </>
+              ) : (
+                <>
+                  Showing <span className="font-bold text-black">{filteredExpenses.length}</span> of{" "}
+                  {expenses.length} records · newest first
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -242,7 +264,7 @@ export function ExpensesBoard() {
               <Receipt className="h-10 w-10 text-baky-muted/60 mb-2" />
               <p className="text-sm font-semibold text-black">No expenses found</p>
               <p className="text-xs text-baky-muted mt-1 max-w-sm">
-                {search || dateFilter !== "All dates"
+                {search || (!isStaff && dateFilter !== "All dates")
                   ? "Adjust the search or date filter to find an expense."
                   : "Start recording expenses like fuel, chocolates, stock, or water bills!"}
               </p>
@@ -460,7 +482,7 @@ export function ExpensesBoard() {
               </div>
 
               {/* Amount & Date Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className={`grid grid-cols-1 gap-3 ${isStaff ? "" : "sm:grid-cols-2"}`}>
                 <div>
                   <label className="block text-xs font-bold text-black mb-1">Amount (₹) *</label>
                   <input
@@ -475,16 +497,23 @@ export function ExpensesBoard() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-black mb-1">Date *</label>
-                  <input
-                    type="date"
-                    required
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-xs font-medium text-black focus:border-[#1177E5] focus:outline-none focus:ring-1 focus:ring-[#1177E5] sm:text-sm"
-                  />
-                </div>
+                {!isStaff && (
+                  <div>
+                    <label className="block text-xs font-bold text-black mb-1">Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-xs font-medium text-black focus:border-[#1177E5] focus:outline-none focus:ring-1 focus:ring-[#1177E5] sm:text-sm"
+                    />
+                  </div>
+                )}
+                {isStaff && (
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-xs font-semibold text-gray-600">
+                    Expense date: Today
+                  </div>
+                )}
               </div>
 
               {/* Notes Input */}
