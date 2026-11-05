@@ -24,8 +24,9 @@ export function Topbar({ title = "Dashboard" }: { title?: string }) {
   const isStaff = currentUser?.role === "Staff";
   const isAdmin = currentUser?.role === "Admin";
   const activeOrders = orders.filter((o) => o.status !== "Past Orders");
+  const staffCustomerOrders = activeOrders.filter((order) => order.orderSource === "Loyalty");
   const lowStock = inventory.filter((i) => i.current <= Math.max(2, Math.round(i.max * 0.3)));
-  const notifCount = activeOrders.length + lowStock.length;
+  const notifCount = isStaff ? staffCustomerOrders.length : activeOrders.length + lowStock.length;
 
   useEffect(() => {
     if (!isAdmin || !supabase) return;
@@ -325,7 +326,7 @@ export function Topbar({ title = "Dashboard" }: { title?: string }) {
                   </p>
                 ) : (
                   <div className="mt-2 max-h-48 space-y-2 overflow-y-auto text-xs">
-                    {activeOrders.length > 0 && (
+                    {(isStaff ? staffCustomerOrders : activeOrders).length > 0 && (
                       <button
                         onClick={() => {
                           setShowNotifMenu(false);
@@ -333,27 +334,28 @@ export function Topbar({ title = "Dashboard" }: { title?: string }) {
                         }}
                         className="flex w-full items-center justify-between rounded-lg bg-baky-card/60 px-2.5 py-2 text-left text-black hover:bg-baky-card"
                       >
-                        <span>Active Orders</span>
+                        <span>{isStaff ? "Customer Orders" : "Active Orders"}</span>
                         <span className="font-semibold text-[#1177E5]">
-                          {activeOrders.length} active
+                          {(isStaff ? staffCustomerOrders : activeOrders).length} active
                         </span>
                       </button>
                     )}
-                    {lowStock.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => {
-                          setShowNotifMenu(false);
-                          navigate({ to: "/inventory" });
-                        }}
-                        className="flex w-full items-center justify-between rounded-lg bg-baky-card/60 px-2.5 py-2 text-left text-black hover:bg-baky-card"
-                      >
-                        <span className="truncate pr-2">Low: {item.name}</span>
-                        <span className="shrink-0 font-semibold text-baky-red">
-                          {item.current}/{item.max}
-                        </span>
-                      </button>
-                    ))}
+                    {!isStaff &&
+                      lowStock.map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            setShowNotifMenu(false);
+                            navigate({ to: "/inventory" });
+                          }}
+                          className="flex w-full items-center justify-between rounded-lg bg-baky-card/60 px-2.5 py-2 text-left text-black hover:bg-baky-card"
+                        >
+                          <span className="truncate pr-2">Low: {item.name}</span>
+                          <span className="shrink-0 font-semibold text-baky-red">
+                            {item.current}/{item.max}
+                          </span>
+                        </button>
+                      ))}
                   </div>
                 )}
               </div>
