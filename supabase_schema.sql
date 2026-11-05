@@ -148,13 +148,6 @@ values
   ('i18', 'Sizzling Brownie', 140, 'c4', array[]::text[], true)
 on conflict (id) do nothing;
 
-insert into public.inventory (id, name, current, max)
-values
-  ('n1', 'Waffle Flour (kg)', 2, 10),
-  ('n2', 'Brownie Plates (Pack)', 7, 10),
-  ('n3', 'Dark Compound (Pack)', 1, 10)
-on conflict (id) do nothing;
-
 insert into public.staff (id, name, phone, password)
 values
   ('s1', 'Staff 1', '9876543210', '1234')

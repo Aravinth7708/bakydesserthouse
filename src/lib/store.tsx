@@ -410,11 +410,16 @@ export const initialItems: MenuItem[] = [
   },
 ];
 
-export const initialInventory: InventoryItem[] = [
-  { id: "n1", name: "Waffle Flour (kg)", current: 2, max: 10 },
-  { id: "n2", name: "Brownie Plates (Pack)", current: 7, max: 10 },
-  { id: "n3", name: "Dark Compound (Pack)", current: 1, max: 10 },
-];
+export const initialInventory: InventoryItem[] = [];
+
+function isRemovedDefaultInventoryItem(item: InventoryItem) {
+  return (
+    ["n1", "n2", "n3"].includes(item.id) ||
+    ["waffle flour (kg)", "brownie plates (pack)", "dark compound (pack)"].includes(
+      item.name.trim().toLowerCase(),
+    )
+  );
+}
 
 const initialOrders: Order[] = [
   {
@@ -583,7 +588,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     setCategories(validCats);
     setItems(validItems);
-    setInventory(Array.isArray(savedInv) && savedInv.length > 0 ? savedInv : initialInventory);
+    const cleanInventory = (Array.isArray(savedInv) ? savedInv : initialInventory).filter(
+      (item) => !isRemovedDefaultInventoryItem(item),
+    );
+    setInventory(cleanInventory);
+    setLocal(LOCAL_INV_KEY, cleanInventory);
     setOrders(Array.isArray(savedOrders) ? savedOrders : initialOrders);
     const normalizedExpenses = (Array.isArray(savedExpenses) ? savedExpenses : initialExpenses).map(
       (expense) => ({ ...expense, category: normalizeExpenseCategory(expense.category) }),
@@ -710,12 +719,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
 
         if (invRes?.data && invRes.data.length > 0) {
-          const loadedInv = invRes.data.map((n: any) => ({
-            id: n.id,
-            name: n.name,
-            current: Number(n.current),
-            max: Number(n.max),
-          }));
+          const loadedInv = invRes.data
+            .map((n: any) => ({
+              id: n.id,
+              name: n.name,
+              current: Number(n.current),
+              max: Number(n.max),
+            }))
+            .filter((item) => !isRemovedDefaultInventoryItem(item));
           setInventory(loadedInv);
           setLocal(LOCAL_INV_KEY, loadedInv);
         }
