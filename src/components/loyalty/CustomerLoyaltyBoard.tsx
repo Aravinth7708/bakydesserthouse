@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Award,
+  Bell,
   CheckCircle2,
   ChevronRight,
   CircleMinus,
   CirclePlus,
   Clock3,
+  Download,
   Gift,
   LoaderCircle,
   Minus,
@@ -72,6 +74,13 @@ export function CustomerLoyaltyBoard() {
   const [showInstallDialog, setShowInstallDialog] = useState(false);
   const [isAppInstalled, setIsAppInstalled] = useState(false);
   const [isIosDevice, setIsIosDevice] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<
+    NotificationPermission | "unsupported"
+  >(() =>
+    typeof window !== "undefined" && "Notification" in window
+      ? Notification.permission
+      : "unsupported",
+  );
   const notificationStatuses = useRef(new Map<string, string>());
   const notificationCustomerId = useRef("");
   const profileRef = useRef(profile);
@@ -84,6 +93,7 @@ export function CustomerLoyaltyBoard() {
       (navigator as Navigator & { standalone?: boolean }).standalone === true;
     setIsAppInstalled(standalone);
     setIsIosDevice(/iphone|ipad|ipod/i.test(navigator.userAgent));
+    setNotificationPermission("Notification" in window ? Notification.permission : "unsupported");
 
     const handleInstallAvailable = (event: Event) => {
       event.preventDefault();
@@ -248,7 +258,8 @@ export function CustomerLoyaltyBoard() {
       Notification.permission === "default"
     ) {
       try {
-        await Notification.requestPermission();
+        const permission = await Notification.requestPermission();
+        setNotificationPermission(permission);
       } catch (permissionError) {
         console.warn("Could not request customer notification permission", permissionError);
       }
@@ -293,6 +304,49 @@ export function CustomerLoyaltyBoard() {
   const dismissInstallDialog = () => {
     setShowInstallDialog(false);
     localStorage.setItem(CUSTOMER_INSTALL_DISMISSED_KEY, "true");
+  };
+
+  const enableCustomerNotifications = async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      setNotice(
+        "This browser does not support notifications. You can still check your rewards here.",
+      );
+      return;
+    }
+    if (Notification.permission === "denied") {
+      setNotificationPermission("denied");
+      setNotice("Notifications are blocked. Allow them for this site in your browser settings.");
+      return;
+    }
+    if (Notification.permission === "granted") {
+      setNotificationPermission("granted");
+      setNotice("Order notifications are already enabled on this device.");
+      return;
+    }
+    try {
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+      setNotice(
+        permission === "granted"
+          ? "You’ll be notified when your order is confirmed and ready."
+          : "Notifications were not enabled. You can still check your order status here.",
+      );
+    } catch (permissionError) {
+      console.warn("Could not request customer notification permission", permissionError);
+      setNotice(
+        "Could not open notification permission. Check your browser settings and try again.",
+      );
+    }
+  };
+
+  const openCustomerInstall = () => {
+    if (isAppInstalled) {
+      setNotice("Baky Dessert House is already installed on this device.");
+      return;
+    }
+    if (installPrompt) void installCustomerApp();
+    else setShowInstallDialog(true);
   };
 
   const refreshProfile = async () => {
@@ -517,6 +571,51 @@ export function CustomerLoyaltyBoard() {
             <span className="max-w-36 truncate">{name}</span>
           </div>
         </div>
+
+        <section className="grid gap-2 sm:grid-cols-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={() => void enableCustomerNotifications()}
+            disabled={notificationPermission === "granted"}
+            className="flex min-h-[68px] items-center gap-3 rounded-2xl border border-black/5 bg-white p-3 text-left shadow-sm transition hover:border-[#b8d6a0] hover:bg-[#fbfdf8] disabled:cursor-default disabled:opacity-75 sm:p-4"
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#edf5e6] text-[#31572e]">
+              <Bell className="h-5 w-5" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-bold text-gray-900">
+                {notificationPermission === "granted"
+                  ? "Notifications enabled"
+                  : notificationPermission === "denied"
+                    ? "Notifications blocked"
+                    : notificationPermission === "unsupported"
+                      ? "Notifications unavailable"
+                      : "Enable notifications"}
+              </span>
+              <span className="mt-0.5 block text-xs leading-relaxed text-gray-500">
+                Order confirmation and ready updates
+              </span>
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={openCustomerInstall}
+            disabled={isAppInstalled}
+            className="flex min-h-[68px] items-center gap-3 rounded-2xl border border-black/5 bg-white p-3 text-left shadow-sm transition hover:border-[#b8d6a0] hover:bg-[#fbfdf8] disabled:cursor-default disabled:opacity-75 sm:p-4"
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#edf5e6] text-[#31572e]">
+              <Download className="h-5 w-5" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-bold text-gray-900">
+                {isAppInstalled ? "App installed" : "Install Baky app"}
+              </span>
+              <span className="mt-0.5 block text-xs leading-relaxed text-gray-500">
+                Open your points and rewards anytime
+              </span>
+            </span>
+          </button>
+        </section>
 
         <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-[#1e3720] via-[#2a4b28] to-[#567b3e] p-5 text-white shadow-md sm:p-7">
           <div className="flex flex-wrap items-start justify-between gap-4">
