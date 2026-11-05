@@ -34,6 +34,7 @@ import {
   claimFreeBrownie,
   getLoyaltyCustomer,
   loadLoyaltyMenu,
+  normalizeLoyaltyPhone,
   submitLoyaltyOrder,
   type LoyaltyMenuItem,
 } from "@/lib/loyalty";
@@ -201,8 +202,8 @@ export function CustomerLoyaltyBoard() {
 
   const identify = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const digits = phone.replace(/\D/g, "");
-    if (name.trim().length < 2 || digits.length < 10) {
+    const digits = normalizeLoyaltyPhone(phone);
+    if (name.trim().length < 2 || digits.length !== 10) {
       setError("Enter your name and a valid mobile number to continue.");
       return;
     }
@@ -277,7 +278,7 @@ export function CustomerLoyaltyBoard() {
     try {
       const id = await submitLoyaltyOrder(
         name,
-        phone,
+        profile?.customer.phone || phone,
         cart.map((line) => ({
           itemId: line.item.id,
           qty: line.qty,
@@ -312,7 +313,7 @@ export function CustomerLoyaltyBoard() {
     setError("");
     setNotice("");
     try {
-      const claimId = await claimFreeBrownie(phone);
+      const claimId = await claimFreeBrownie(profile?.customer.phone || phone);
       setNotice(
         `Free brownie claim ${claimId.slice(0, 8).toUpperCase()} requested. Show this to staff to redeem.`,
       );

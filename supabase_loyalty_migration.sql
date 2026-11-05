@@ -68,6 +68,80 @@ create table if not exists public.loyalty_reward_claims (
   redeemed_by text
 );
 
+-- Canonicalize Indian country-code phone numbers and merge duplicate loyalty profiles.
+do $$
+declare
+  v_group record;
+  v_keeper uuid;
+  v_duplicates uuid[];
+  v_points integer;
+  v_remainder numeric(12,2);
+begin
+  for v_group in
+    select phone_key
+    from (
+      select case
+        when length(phone) = 12 and left(phone, 2) = '91' then right(phone, 10)
+        when length(phone) = 14 and left(phone, 4) = '0091' then right(phone, 10)
+        else phone
+      end as phone_key
+      from public.loyalty_customers
+    ) normalized
+    group by phone_key
+    having count(*) > 1
+  loop
+    select id into v_keeper
+    from public.loyalty_customers
+    where case
+      when length(phone) = 12 and left(phone, 2) = '91' then right(phone, 10)
+      when length(phone) = 14 and left(phone, 4) = '0091' then right(phone, 10)
+      else phone
+    end = v_group.phone_key
+    order by (phone = v_group.phone_key) desc, created_at, id
+    limit 1;
+
+    select array_agg(id) filter (where id <> v_keeper),
+           coalesce(sum(points_balance), 0),
+           coalesce(sum(spend_remainder), 0)
+      into v_duplicates, v_points, v_remainder
+    from public.loyalty_customers
+    where case
+      when length(phone) = 12 and left(phone, 2) = '91' then right(phone, 10)
+      when length(phone) = 14 and left(phone, 4) = '0091' then right(phone, 10)
+      else phone
+    end = v_group.phone_key;
+
+    update public.loyalty_orders
+      set customer_id = v_keeper, customer_phone = v_group.phone_key
+      where customer_id = any(v_duplicates);
+    update public.loyalty_points_ledger
+      set customer_id = v_keeper
+      where customer_id = any(v_duplicates);
+    update public.loyalty_reward_claims
+      set customer_id = v_keeper
+      where customer_id = any(v_duplicates);
+    update public.loyalty_orders
+      set customer_phone = v_group.phone_key
+      where customer_id = v_keeper;
+    update public.loyalty_customers
+      set points_balance = v_points + floor(v_remainder / 100)::integer,
+          spend_remainder = mod(v_remainder, 100),
+          updated_at = now()
+      where id = v_keeper;
+    delete from public.loyalty_customers where id = any(v_duplicates);
+  end loop;
+
+  update public.loyalty_customers
+    set phone = case
+      when length(phone) = 12 and left(phone, 2) = '91' then right(phone, 10)
+      when length(phone) = 14 and left(phone, 4) = '0091' then right(phone, 10)
+      else phone
+    end
+    where (length(phone) = 12 and left(phone, 2) = '91')
+       or (length(phone) = 14 and left(phone, 4) = '0091');
+end;
+$$;
+
 create index if not exists loyalty_orders_status_created_idx
   on public.loyalty_orders(status, created_at desc);
 create index if not exists loyalty_orders_customer_created_idx
@@ -125,10 +199,15 @@ declare
   v_takeaway_fee numeric(12,2) := 0;
   v_total numeric(12,2) := 0;
 begin
+  if length(v_phone) = 12 and left(v_phone, 2) = '91' then
+    v_phone := right(v_phone, 10);
+  elsif length(v_phone) = 14 and left(v_phone, 4) = '0091' then
+    v_phone := right(v_phone, 10);
+  end if;
   if length(v_name) < 2 or length(v_name) > 100 then
     raise exception 'Enter a valid customer name.';
   end if;
-  if length(v_phone) < 10 or length(v_phone) > 13 then
+  if length(v_phone) <> 10 then
     raise exception 'Enter a valid mobile number.';
   end if;
   if coalesce(p_fulfillment_type, '') not in ('Dine In', 'Takeaway') then
@@ -239,6 +318,11 @@ declare
   v_customer public.loyalty_customers%rowtype;
   v_claim_id uuid;
 begin
+  if length(v_phone) = 12 and left(v_phone, 2) = '91' then
+    v_phone := right(v_phone, 10);
+  elsif length(v_phone) = 14 and left(v_phone, 4) = '0091' then
+    v_phone := right(v_phone, 10);
+  end if;
   select * into v_customer from public.loyalty_customers where phone = v_phone for update;
   if not found then raise exception 'Customer profile not found.'; end if;
   if v_customer.points_balance < 10 then raise exception 'You need 10 points to claim a brownie.'; end if;

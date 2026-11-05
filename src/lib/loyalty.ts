@@ -59,6 +59,13 @@ function ensureSupabase() {
     throw new Error("Loyalty service is not connected to Supabase.");
 }
 
+export function normalizeLoyaltyPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2);
+  if (digits.length === 14 && digits.startsWith("0091")) return digits.slice(4);
+  return digits;
+}
+
 export async function loadLoyaltyMenu(): Promise<LoyaltyMenuItem[]> {
   ensureSupabase();
   const [menuResult, categoriesResult] = await Promise.all([
@@ -93,7 +100,7 @@ export async function submitLoyaltyOrder(
   ensureSupabase();
   const { data, error } = await supabase.rpc("place_loyalty_order", {
     p_name: name.trim(),
-    p_phone: phone,
+    p_phone: phone.replace(/\D/g, ""),
     p_items: items,
     p_fulfillment_type: fulfillmentType,
   });
@@ -103,14 +110,16 @@ export async function submitLoyaltyOrder(
 
 export async function getLoyaltyCustomer(phone: string) {
   ensureSupabase();
-  const normalizedPhone = phone.replace(/\D/g, "");
+  const normalizedPhone = normalizeLoyaltyPhone(phone);
+  const phoneAliases = [normalizedPhone, `91${normalizedPhone}`, `0091${normalizedPhone}`];
   const { data: customer, error } = await supabase
     .from("loyalty_customers")
     .select("*")
-    .eq("phone", normalizedPhone)
-    .maybeSingle();
+    .in("phone", phoneAliases);
   if (error) throw new Error(error.message);
-  if (!customer) return null;
+  const matchingCustomer =
+    (customer || []).find((entry) => entry.phone === normalizedPhone) || customer?.[0];
+  if (!matchingCustomer) return null;
 
   const [ordersResult, ledgerResult, claimsResult] = await Promise.all([
     supabase
@@ -118,26 +127,26 @@ export async function getLoyaltyCustomer(phone: string) {
       .select(
         "id,shop_order_id,total,status,points_earned,created_at,items,fulfillment_type,takeaway_fee",
       )
-      .eq("customer_id", customer.id)
+      .eq("customer_id", matchingCustomer.id)
       .order("created_at", { ascending: false })
       .limit(20),
     supabase
       .from("loyalty_points_ledger")
       .select("id,points_delta,entry_type,description,created_at")
-      .eq("customer_id", customer.id)
+      .eq("customer_id", matchingCustomer.id)
       .order("created_at", { ascending: false })
       .limit(30),
     supabase
       .from("loyalty_reward_claims")
       .select("id,reward_name,points_spent,status,created_at,redeemed_at")
-      .eq("customer_id", customer.id)
+      .eq("customer_id", matchingCustomer.id)
       .order("created_at", { ascending: false })
       .limit(20),
   ]);
   const nestedError = ordersResult.error || ledgerResult.error || claimsResult.error;
   if (nestedError) throw new Error(nestedError.message);
   return {
-    customer: customer as LoyaltyCustomer,
+    customer: matchingCustomer as LoyaltyCustomer,
     orders: (ordersResult.data || []) as Array<
       Pick<
         LoyaltyOrder,
@@ -159,7 +168,9 @@ export async function getLoyaltyCustomer(phone: string) {
 
 export async function claimFreeBrownie(phone: string) {
   ensureSupabase();
-  const { data, error } = await supabase.rpc("claim_loyalty_brownie", { p_phone: phone });
+  const { data, error } = await supabase.rpc("claim_loyalty_brownie", {
+    p_phone: phone.replace(/\D/g, ""),
+  });
   if (error) throw new Error(error.message);
   return String(data);
 }

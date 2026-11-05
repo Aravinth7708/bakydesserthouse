@@ -3,13 +3,16 @@ import {
   Bell,
   CheckCheck,
   Clock3,
+  Copy,
   LoaderCircle,
   Phone,
+  QrCode,
   RefreshCw,
   ShieldCheck,
   ShoppingBag,
   UserRound,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { useStore } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
 import {
@@ -35,6 +38,7 @@ export function LoyaltyOperationsBoard() {
   const [isLoading, setIsLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
+  const [copiedCustomerLink, setCopiedCustomerLink] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<
     NotificationPermission | "unsupported"
   >(() =>
@@ -44,6 +48,8 @@ export function LoyaltyOperationsBoard() {
   );
   const knownOrderIds = useRef(new Set<string>());
   const initialOrdersLoaded = useRef(false);
+  const customerLink =
+    typeof window === "undefined" ? "/customer" : `${window.location.origin}/customer`;
 
   const notifyNewOrder = useCallback(async (order: LoyaltyOrder) => {
     if (
@@ -125,6 +131,16 @@ export function LoyaltyOperationsBoard() {
     } catch (permissionError) {
       console.warn("Could not request staff notification permission", permissionError);
       setNotificationPermission(Notification.permission);
+    }
+  };
+
+  const copyCustomerLink = async () => {
+    try {
+      await navigator.clipboard.writeText(customerLink);
+      setCopiedCustomerLink(true);
+      window.setTimeout(() => setCopiedCustomerLink(false), 1800);
+    } catch {
+      setError("Could not copy the customer link. Please copy it from the QR card.");
     }
   };
 
@@ -231,6 +247,34 @@ export function LoyaltyOperationsBoard() {
           <SmallStat label="New orders" value={newOrders.length} tone="blue" />
           <SmallStat label="In preparation" value={activeOrders.length} tone="amber" />
           <SmallStat label="Pending brownie claims" value={pendingClaims.length} tone="green" />
+        </div>
+      </section>
+
+      <section className="flex flex-col items-center gap-4 rounded-2xl border border-black/5 bg-baky-surface p-4 sm:flex-row sm:justify-between sm:p-5">
+        <div className="min-w-0 text-center sm:text-left">
+          <div className="flex items-center justify-center gap-2 sm:justify-start">
+            <QrCode className="h-5 w-5 text-[#31572e]" />
+            <h3 className="text-base font-bold text-black">Customer loyalty QR</h3>
+          </div>
+          <p className="mt-1 text-sm text-baky-muted">
+            Let customers scan to open the menu, place an order, and earn rewards.
+          </p>
+          <p className="mt-2 break-all text-xs font-medium text-gray-700">{customerLink}</p>
+          <button
+            onClick={() => void copyCustomerLink()}
+            className="mt-3 inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#213a20] px-4 text-xs font-bold text-white hover:bg-[#31572e]"
+          >
+            <Copy className="h-4 w-4" /> {copiedCustomerLink ? "Link copied" : "Copy customer link"}
+          </button>
+        </div>
+        <div className="shrink-0 rounded-2xl bg-white p-3 shadow-sm">
+          <QRCodeSVG
+            value={customerLink}
+            size={144}
+            level="H"
+            includeMargin
+            aria-label="Customer loyalty QR code"
+          />
         </div>
       </section>
 
