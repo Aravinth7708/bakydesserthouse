@@ -62,7 +62,7 @@ create table if not exists public.staff (
 create table if not exists public.expenses (
   id text primary key default gen_random_uuid()::text,
   title text not null,
-  category text not null check (category in ('Fuel', 'Stock / Ingredients', 'Water & Utilities', 'Maintenance & Repair', 'Salary', 'Other')),
+  category text not null check (category in ('Fuel', 'Stock / Ingredients', 'Water', 'Maintenance & Repair', 'Salary', 'Viveka Agencies', 'Others', 'Water & Utilities', 'Other')),
   amount numeric not null default 0,
   payment_method text default 'Cash',
   notes text,

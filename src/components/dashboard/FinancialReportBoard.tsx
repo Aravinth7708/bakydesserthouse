@@ -27,6 +27,13 @@ const escapeXml = (value: string) =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 
+function expenseReportTitle(expense: { title: string; category: string }) {
+  if (expense.category === "Salary") {
+    return expense.title.replace(/^daily salary\s*[-–:]?\s*/i, "");
+  }
+  return expense.title;
+}
+
 async function getReportLogoDataUrl() {
   const response = await fetch("/baky-logo.png");
   if (!response.ok) throw new Error("Could not load the Baky logo.");
@@ -71,6 +78,23 @@ function createReportCanvas(width: number, height: number) {
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
   return { canvas, context };
+}
+
+function wrapCanvasText(context: CanvasRenderingContext2D, text: string, maxWidth: number) {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word;
+    if (line && context.measureText(candidate).width > maxWidth) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = candidate;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
 }
 
 function orderPayment(order: Order): { cash: number; gpay: number; online: number; paid: number } {
@@ -291,8 +315,23 @@ export function FinancialReportBoard() {
     const padding = 64;
     let rowY = 590;
     for (const order of dailyReport.orders) rowY += 42 + order.lines.length * 36;
-    const expenseTop = Math.max(rowY + 96, 690);
-    const height = Math.max(880, expenseTop + dailyReport.expenses.length * 45 + 160);
+    let expenseTop = Math.max(rowY + 96, 690);
+    const expenseMeasureCanvas = document.createElement("canvas");
+    const expenseMeasureContext = expenseMeasureCanvas.getContext("2d");
+    if (!expenseMeasureContext) throw new Error("Image export isn't available in this browser.");
+    expenseMeasureContext.font = "22px Arial, sans-serif";
+    const expenseRows = dailyReport.expenses.map((expense) =>
+      wrapCanvasText(
+        expenseMeasureContext,
+        `${expenseReportTitle(expense)} · ${expense.category}`,
+        900,
+      ),
+    );
+    const expenseRowsHeight = expenseRows.reduce(
+      (height, lines) => height + lines.length * 30 + 16,
+      0,
+    );
+    const height = Math.max(880, expenseTop + expenseRowsHeight + 160);
     const { canvas, context } = createReportCanvas(width, height);
 
     context.fillStyle = "#ffffff";
@@ -455,18 +494,18 @@ export function FinancialReportBoard() {
     context.stroke();
     if (dailyReport.expenses.length) {
       dailyReport.expenses.forEach((expense, index) => {
-        const y = expenseTop + 52 + index * 45;
+        const rowTop = expenseTop + 52;
+        let y = rowTop;
         context.textAlign = "left";
         context.fillStyle = "#242424";
         context.font = "22px Arial, sans-serif";
-        context.fillText(
-          `${expense.title} · ${expense.category} · Paid by ${expense.paymentMethod || "Cash"}${expense.notes ? ` · ${expense.notes}` : ""}`,
-          padding,
-          y,
-          900,
-        );
+        for (const line of expenseRows[index]) {
+          context.fillText(line, padding, y);
+          y += 30;
+        }
         context.textAlign = "right";
-        context.fillText(money(expense.amount), 1136, y);
+        context.fillText(money(expense.amount), 1136, rowTop);
+        expenseTop += expenseRows[index].length * 30 + 16;
       });
     } else {
       context.fillStyle = "#686868";
@@ -506,7 +545,7 @@ export function FinancialReportBoard() {
     const expenseRows = dailyReport.expenses
       .map(
         (expense) =>
-          `<tr><td>${escapeXml(expense.title)}<small>${escapeXml(expense.category)} · Paid by ${escapeXml(expense.paymentMethod || "Cash")}${expense.notes ? ` · ${escapeXml(expense.notes)}` : ""}</small></td><td class="number">${escapeXml(money(expense.amount))}</td></tr>`,
+          `<tr><td>${escapeXml(expenseReportTitle(expense))}<small>${escapeXml(expense.category)}</small></td><td class="number">${escapeXml(money(expense.amount))}</td></tr>`,
       )
       .join("");
     printWindow.document
@@ -1155,10 +1194,11 @@ export function FinancialReportBoard() {
                     className="flex items-center justify-between gap-3 px-3 py-3 text-xs"
                   >
                     <span className="min-w-0">
-                      <span className="block truncate font-medium">{expense.title}</span>
+                      <span className="block truncate font-medium">
+                        {expenseReportTitle(expense)}
+                      </span>
                       <span className="block truncate text-[10px] text-black/50">
-                        {expense.category} · Paid by {expense.paymentMethod || "Cash"}
-                        {expense.notes ? ` · ${expense.notes}` : ""}
+                        {expense.category}
                       </span>
                     </span>
                     <strong className="shrink-0 text-rose-700">{money(expense.amount)}</strong>
