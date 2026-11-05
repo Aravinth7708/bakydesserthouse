@@ -76,7 +76,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
+  head: ({ matches }) => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
@@ -106,7 +106,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: appCss,
       },
       { rel: "icon", href: "/baky-logo.png", type: "image/png" },
-      { rel: "manifest", href: "/manifest.webmanifest" },
+      {
+        rel: "manifest",
+        href: matches.some((match) => match.routeId === "/customer")
+          ? "/customer-manifest.webmanifest"
+          : "/manifest.webmanifest",
+      },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       {
