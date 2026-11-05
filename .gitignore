@@ -26,6 +26,9 @@ dist-ssr
 # Vercel
 .vercel
 
+# Codex / Attachments
+.codex-remote-attachments/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
