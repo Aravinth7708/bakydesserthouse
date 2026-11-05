@@ -28,6 +28,23 @@ export type InventoryItem = {
 
 export type OrderStatus = "New" | "Preparing" | "Served" | "Past Orders";
 
+function normalizeOrderStatus(status: unknown, paymentMethod?: unknown): OrderStatus {
+  const value = String(status || "")
+    .trim()
+    .toLowerCase();
+  if (
+    ["past orders", "past order", "completed", "complete", "closed", "paid", "done"].includes(
+      value,
+    ) ||
+    Boolean(paymentMethod)
+  ) {
+    return "Past Orders";
+  }
+  if (value === "preparing") return "Preparing";
+  if (value === "served" || value === "ready") return "Served";
+  return "New";
+}
+
 export type PaymentMethod = "Cash" | "GPay" | "Online Orders" | "Split Payment" | "Nil";
 
 export type OrderLine = {
@@ -600,11 +617,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        const loadAllOrders = async () => {
+          const pageSize = 1000;
+          const allOrders = [];
+          let offset = 0;
+
+          while (true) {
+            const { data, error } = await supabase
+              .from("orders")
+              .select("*")
+              .order("created_at", { ascending: false })
+              .order("id", { ascending: false })
+              .range(offset, offset + pageSize - 1);
+            if (error) throw error;
+            allOrders.push(...(data || []));
+            if (!data || data.length < pageSize) break;
+            offset += pageSize;
+          }
+
+          return { data: allOrders, error: null };
+        };
+
         const results = await Promise.allSettled([
           Promise.resolve(probe),
           supabase.from("menu_items").select("*").order("created_at", { ascending: true }),
           supabase.from("inventory").select("*").order("created_at", { ascending: true }),
-          supabase.from("orders").select("*").order("created_at", { ascending: false }),
+          loadAllOrders(),
           supabase.from("staff").select("*").order("created_at", { ascending: true }),
           supabase.from("expenses").select("*").order("date", { ascending: false }),
           supabase
@@ -662,7 +700,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             id: o.id,
             lines: o.lines || [],
             total: Number(o.total),
-            status: o.status as OrderStatus,
+            status: normalizeOrderStatus(o.status, o.payment_method || o.paymentMethod),
             orderSource: o.order_source || "Shop",
             customerName: o.customer_name || undefined,
             customerPhone: o.customer_phone || undefined,

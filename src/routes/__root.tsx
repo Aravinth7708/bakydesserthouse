@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -160,6 +161,7 @@ type InstallPromptEvent = Event & {
 };
 
 function PwaInstallPrompt() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [showIosHelp, setShowIosHelp] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -197,7 +199,7 @@ function PwaInstallPrompt() {
     };
   }, []);
 
-  if (isInstalled || (!installPrompt && !showIosHelp)) return null;
+  if (pathname === "/customer" || isInstalled || (!installPrompt && !showIosHelp)) return null;
 
   const installApp = async () => {
     if (!installPrompt) return;

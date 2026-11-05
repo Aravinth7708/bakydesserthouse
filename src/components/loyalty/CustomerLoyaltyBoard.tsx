@@ -41,6 +41,11 @@ import {
 
 type CartLine = { item: LoyaltyMenuItem; variant: string; qty: number };
 type FulfillmentType = "Dine In" | "Takeaway";
+type CustomerInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+};
+const CUSTOMER_INSTALL_DISMISSED_KEY = "baky_customer_install_prompt_dismissed";
 
 const money = (amount: number) => `₹${Math.round(amount).toLocaleString("en-IN")}`;
 
@@ -63,11 +68,41 @@ export function CustomerLoyaltyBoard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [installPrompt, setInstallPrompt] = useState<CustomerInstallPromptEvent | null>(null);
+  const [showInstallDialog, setShowInstallDialog] = useState(false);
+  const [isAppInstalled, setIsAppInstalled] = useState(false);
+  const [isIosDevice, setIsIosDevice] = useState(false);
   const notificationStatuses = useRef(new Map<string, string>());
   const notificationCustomerId = useRef("");
   const profileRef = useRef(profile);
   profileRef.current = profile;
   const activeCustomerId = profile?.customer.id;
+
+  useEffect(() => {
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    setIsAppInstalled(standalone);
+    setIsIosDevice(/iphone|ipad|ipod/i.test(navigator.userAgent));
+
+    const handleInstallAvailable = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as CustomerInstallPromptEvent);
+    };
+    const handleInstalled = () => {
+      setIsAppInstalled(true);
+      setInstallPrompt(null);
+      setShowInstallDialog(false);
+      localStorage.removeItem(CUSTOMER_INSTALL_DISMISSED_KEY);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleInstallAvailable);
+    window.addEventListener("appinstalled", handleInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleInstallAvailable);
+      window.removeEventListener("appinstalled", handleInstalled);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -226,6 +261,9 @@ export function CustomerLoyaltyBoard() {
       if (current) setName(current.customer.name);
       setProfile(current);
       setIdentified(true);
+      if (!isAppInstalled && !localStorage.getItem(CUSTOMER_INSTALL_DISMISSED_KEY)) {
+        setShowInstallDialog(true);
+      }
     } catch (loadError) {
       setError(
         loadError instanceof Error ? loadError.message : "Could not look up your loyalty card.",
@@ -233,6 +271,28 @@ export function CustomerLoyaltyBoard() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const installCustomerApp = async () => {
+    if (!installPrompt) return;
+    try {
+      await installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      setInstallPrompt(null);
+      if (choice.outcome === "accepted") setIsAppInstalled(true);
+      setShowInstallDialog(false);
+      localStorage.setItem(CUSTOMER_INSTALL_DISMISSED_KEY, "true");
+    } catch (installError) {
+      console.warn("Could not start customer app installation", installError);
+      setError(
+        "Could not open the install prompt. Use your browser menu to add Baky to your home screen.",
+      );
+    }
+  };
+
+  const dismissInstallDialog = () => {
+    setShowInstallDialog(false);
+    localStorage.setItem(CUSTOMER_INSTALL_DISMISSED_KEY, "true");
   };
 
   const refreshProfile = async () => {
@@ -391,6 +451,64 @@ export function CustomerLoyaltyBoard() {
 
   return (
     <main className="min-h-dvh bg-[#fbfaf8] px-3 py-4 pb-28 sm:px-6 sm:py-8 sm:pb-28 lg:pb-8">
+      <Dialog
+        open={showInstallDialog}
+        onOpenChange={(open) => {
+          if (!open) dismissInstallDialog();
+          else setShowInstallDialog(true);
+        }}
+      >
+        <DialogContent className="max-h-[90dvh] w-[calc(100vw-1.5rem)] overflow-y-auto rounded-3xl border-0 bg-white p-5 sm:max-w-md sm:p-7">
+          <DialogHeader className="text-left">
+            <div className="mb-1 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#edf5e6] text-[#31572e]">
+              <Award className="h-6 w-6" />
+            </div>
+            <DialogTitle className="text-xl font-extrabold text-gray-900">
+              Keep your points close
+            </DialogTitle>
+            <DialogDescription className="text-sm leading-relaxed text-gray-600">
+              Add Baky Dessert House to your phone to check your points and rewards anytime, even
+              when you don’t have the QR code nearby.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!installPrompt && (
+            <div className="rounded-2xl bg-[#f5f8f1] p-4 text-sm leading-relaxed text-gray-700">
+              {isIosDevice ? (
+                <>
+                  Tap <strong>Share</strong> in your browser, then choose{" "}
+                  <strong>Add to Home Screen</strong>.
+                </>
+              ) : (
+                <>
+                  Open your browser menu <strong>⋮</strong> and choose <strong>Install app</strong>{" "}
+                  or <strong>Add to Home screen</strong>.
+                </>
+              )}
+            </div>
+          )}
+
+          <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={dismissInstallDialog}
+              className="flex min-h-11 items-center justify-center rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              {installPrompt ? "Maybe later" : "Got it"}
+            </button>
+            {installPrompt && (
+              <button
+                type="button"
+                onClick={() => void installCustomerApp()}
+                className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#213a20] px-4 text-sm font-bold text-white hover:bg-[#31572e]"
+              >
+                Install app
+              </button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 sm:gap-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <BrandHeader outletName={outletInfo.name} compact />
