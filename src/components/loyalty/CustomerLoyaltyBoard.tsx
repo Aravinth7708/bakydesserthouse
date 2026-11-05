@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Award,
   CheckCircle2,
@@ -29,6 +29,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { useStore } from "@/lib/store";
+import { supabase } from "@/lib/supabase";
 import {
   claimFreeBrownie,
   getLoyaltyCustomer,
@@ -61,6 +62,11 @@ export function CustomerLoyaltyBoard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const notificationStatuses = useRef(new Map<string, string>());
+  const notificationCustomerId = useRef("");
+  const profileRef = useRef(profile);
+  profileRef.current = profile;
+  const activeCustomerId = profile?.customer.id;
 
   useEffect(() => {
     let active = true;
@@ -74,6 +80,105 @@ export function CustomerLoyaltyBoard() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    const currentProfile = profileRef.current;
+    const customerId = activeCustomerId;
+    if (!identified || !customerId || !currentProfile) return;
+
+    const statuses = notificationStatuses.current;
+    if (notificationCustomerId.current !== customerId) {
+      statuses.clear();
+      currentProfile.orders.forEach((order) => statuses.set(order.id, order.status));
+      notificationCustomerId.current = customerId;
+    }
+    let active = true;
+
+    const announceStatus = (orderId: string, nextStatus: string) => {
+      const previousStatus = statuses.get(orderId);
+      statuses.set(orderId, nextStatus);
+      const message =
+        nextStatus === "Preparing" && previousStatus !== "Preparing" && previousStatus !== "Ready"
+          ? {
+              title: "Your order is confirmed",
+              body: "The shop has confirmed your order and started preparing it.",
+            }
+          : nextStatus === "Ready" && previousStatus !== "Ready"
+            ? {
+                title: "Your order is ready",
+                body: "Your order is ready. Please collect it from the shop.",
+              }
+            : null;
+      if (
+        !message ||
+        typeof window === "undefined" ||
+        !("Notification" in window) ||
+        Notification.permission !== "granted"
+      )
+        return;
+
+      void (async () => {
+        try {
+          const registration =
+            "serviceWorker" in navigator
+              ? await navigator.serviceWorker.getRegistration()
+              : undefined;
+          if (registration) {
+            await registration.showNotification(message.title, {
+              body: message.body,
+              icon: "/baky-logo.png",
+              badge: "/baky-logo.png",
+              tag: `loyalty-order-${orderId}-${nextStatus.toLowerCase()}`,
+              data: { url: "/customer" },
+            });
+          } else {
+            new Notification(message.title, {
+              body: message.body,
+              tag: `loyalty-order-${orderId}`,
+            });
+          }
+        } catch (notificationError) {
+          console.warn("Could not show the customer order notification", notificationError);
+        }
+      })();
+    };
+
+    const refreshOrderStatuses = async () => {
+      try {
+        const latest = await getLoyaltyCustomer(phone);
+        if (!active || !latest) return;
+        latest.orders.forEach((order) => announceStatus(order.id, order.status));
+        setProfile(latest);
+      } catch (refreshError) {
+        console.warn("Could not refresh customer order notifications", refreshError);
+      }
+    };
+
+    const channel = supabase
+      ?.channel(`customer-order-updates-${customerId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "loyalty_orders",
+          filter: `customer_id=eq.${customerId}`,
+        },
+        (payload) => {
+          const order = payload.new as { id?: string; status?: string };
+          if (order.id && order.status) announceStatus(order.id, order.status);
+          void refreshOrderStatuses();
+        },
+      )
+      .subscribe();
+
+    const poll = window.setInterval(() => void refreshOrderStatuses(), 10000);
+    return () => {
+      active = false;
+      window.clearInterval(poll);
+      if (channel) void supabase?.removeChannel(channel);
+    };
+  }, [activeCustomerId, identified, phone]);
 
   const categories = useMemo(
     () => ["All", ...new Set(menu.map((item) => item.categoryName).filter(Boolean))],
@@ -100,6 +205,17 @@ export function CustomerLoyaltyBoard() {
     if (name.trim().length < 2 || digits.length < 10) {
       setError("Enter your name and a valid mobile number to continue.");
       return;
+    }
+    if (
+      typeof window !== "undefined" &&
+      "Notification" in window &&
+      Notification.permission === "default"
+    ) {
+      try {
+        await Notification.requestPermission();
+      } catch (permissionError) {
+        console.warn("Could not request customer notification permission", permissionError);
+      }
     }
     setIsLoading(true);
     setError("");
@@ -234,6 +350,10 @@ export function CustomerLoyaltyBoard() {
                   className="mt-1.5 h-12 w-full rounded-xl border border-gray-200 bg-white px-3.5 text-sm outline-none focus:border-[#5b9138] focus:ring-2 focus:ring-[#c5e9a3]/60"
                 />
               </label>
+              <p className="text-xs leading-relaxed text-gray-500">
+                Allow notifications when prompted to get updates when your order is confirmed and
+                ready.
+              </p>
               <label className="block text-sm font-semibold text-gray-800">
                 Mobile number
                 <input
