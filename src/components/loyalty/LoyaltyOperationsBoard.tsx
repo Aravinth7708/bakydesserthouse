@@ -11,8 +11,10 @@ import {
   ShieldCheck,
   ShoppingBag,
   UserRound,
+  X,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useStore } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
 import {
@@ -39,6 +41,7 @@ export function LoyaltyOperationsBoard() {
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
   const [copiedCustomerLink, setCopiedCustomerLink] = useState(false);
+  const [showQrFullscreen, setShowQrFullscreen] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<
     NotificationPermission | "unsupported"
   >(() =>
@@ -267,16 +270,52 @@ export function LoyaltyOperationsBoard() {
             <Copy className="h-4 w-4" /> {copiedCustomerLink ? "Link copied" : "Copy customer link"}
           </button>
         </div>
-        <div className="shrink-0 rounded-2xl bg-white p-3 shadow-sm">
-          <QRCodeSVG
-            value={customerLink}
-            size={144}
-            level="H"
-            includeMargin
-            aria-label="Customer loyalty QR code"
-          />
-        </div>
+        <button
+          type="button"
+          onClick={() => setShowQrFullscreen(true)}
+          className="shrink-0 rounded-2xl bg-white p-3 shadow-sm transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#31572e]"
+          aria-label="Show customer loyalty QR code full screen"
+        >
+          <QRCodeSVG value={customerLink} size={144} level="H" includeMargin />
+          <span className="mt-1 block text-center text-[10px] font-semibold text-gray-500">
+            Tap to enlarge
+          </span>
+        </button>
       </section>
+
+      <Dialog open={showQrFullscreen} onOpenChange={setShowQrFullscreen}>
+        <DialogContent className="h-[100dvh] w-screen max-w-none rounded-none border-0 bg-white p-4 sm:p-8 [&>button]:hidden">
+          <div className="flex h-full flex-col items-center justify-center gap-5 text-center">
+            <button
+              type="button"
+              onClick={() => setShowQrFullscreen(false)}
+              className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-gray-100 text-gray-800 hover:bg-gray-200 sm:right-8 sm:top-8"
+              aria-label="Close full-screen QR code"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <div>
+              <DialogTitle className="text-xl font-extrabold text-gray-900 sm:text-2xl">
+                Scan to order & earn rewards
+              </DialogTitle>
+              <DialogDescription className="mt-2 text-sm text-gray-600">
+                Point your phone camera at the code to open Baky customer orders.
+              </DialogDescription>
+            </div>
+            <div className="rounded-3xl bg-white p-3 shadow-lg ring-1 ring-black/10 sm:p-5">
+              <QRCodeSVG
+                value={customerLink}
+                size={640}
+                level="H"
+                includeMargin
+                className="h-auto w-[min(82vw,72dvh)]"
+                aria-label="Full-screen customer loyalty QR code"
+              />
+            </div>
+            <p className="max-w-xl break-all text-xs text-gray-500 sm:text-sm">{customerLink}</p>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-2 gap-2 rounded-2xl bg-baky-surface p-1.5">
         <button
