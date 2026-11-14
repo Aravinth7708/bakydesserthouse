@@ -20,6 +20,8 @@ const latePresets = [
   { label: "2 hr late", minutes: 120 },
 ];
 
+const overtimeFinishPresets = ["22:30", "23:00"];
+
 function timeAfterMinutes(time: string, minutesToAdd: number) {
   const [hours, minutes] = time.split(":").map(Number);
   const totalMinutes = hours * 60 + minutes + minutesToAdd;
@@ -30,7 +32,7 @@ function attendanceStatus(record: StaffAttendance): AttendanceStatus {
   return (
     record.status ||
     ((record.checkIn && record.checkIn > SHIFT_START) ||
-    (record.checkOut && record.checkOut < SHIFT_END)
+    (record.checkOut && record.checkOut !== SHIFT_END)
       ? "Late"
       : "Present")
   );
@@ -39,10 +41,22 @@ function attendanceStatus(record: StaffAttendance): AttendanceStatus {
 function payForRecord(record: StaffAttendance) {
   const status = attendanceStatus(record);
   if (status === "Present") {
-    return { lateMinutes: 0, earlyLeaveMinutes: 0, deduction: 0, earned: record.dailyPay };
+    return {
+      lateMinutes: 0,
+      earlyLeaveMinutes: 0,
+      overtimeMinutes: 0,
+      deduction: 0,
+      earned: record.dailyPay,
+    };
   }
   if (status === "Absent") {
-    return { lateMinutes: 0, earlyLeaveMinutes: 0, deduction: record.dailyPay, earned: 0 };
+    return {
+      lateMinutes: 0,
+      earlyLeaveMinutes: 0,
+      overtimeMinutes: 0,
+      deduction: record.dailyPay,
+      earned: 0,
+    };
   }
   return calculateAttendancePay(
     record.checkIn || SHIFT_START,
@@ -394,7 +408,8 @@ export function AttendanceBoard() {
 
       <p className="px-1 text-[11px] leading-relaxed text-baky-muted sm:text-xs">
         Present earns {formatPay(DAILY_STAFF_PAY)}; absent earns ₹0. Late pay is prorated using the
-        210-minute shift and added to expenses when saved.
+        210-minute shift; extra time after {formatClockTime(SHIFT_END)} increases pay and is added
+        to expenses when saved.
       </p>
 
       {dialog && (
@@ -503,6 +518,12 @@ function StaffAttendanceCard({
           {status === "Late" && pay.earlyLeaveMinutes > 0 && (
             <p className="text-amber-800">Left early by {pay.earlyLeaveMinutes} min</p>
           )}
+          {status === "Late" && pay.overtimeMinutes > 0 && (
+            <p className="font-medium text-emerald-800">
+              Extra time: {pay.overtimeMinutes} min · {formatPay(pay.earned - record.dailyPay)}{" "}
+              extra
+            </p>
+          )}
           {pay.deduction > 0 && (
             <p className="font-medium text-amber-800">
               Salary reduction: {formatPay(pay.deduction)}
@@ -572,7 +593,10 @@ function AttendanceDialog({
   const [checkIn, setCheckIn] = useState(record?.checkIn ?? "");
   const [checkOut, setCheckOut] = useState(record?.checkOut ?? "");
   const validLateTimes = Boolean(
-    checkIn && checkOut && checkOut >= checkIn && (checkIn > SHIFT_START || checkOut < SHIFT_END),
+    checkIn &&
+    checkOut &&
+    checkOut >= checkIn &&
+    (checkIn !== SHIFT_START || checkOut !== SHIFT_END),
   );
   const estimatedPay =
     status === "Present"
@@ -676,6 +700,35 @@ function AttendanceDialog({
                 Presets set out-time to {formatClockTime(SHIFT_END)}; you can change either time.
               </p>
             </div>
+            <div className="mt-3">
+              <p className="mb-2 text-xs font-semibold text-gray-700">Overtime finish</p>
+              <div className="grid grid-cols-2 gap-2">
+                {overtimeFinishPresets.map((time) => {
+                  const selected = checkIn === SHIFT_START && checkOut === time;
+                  return (
+                    <button
+                      key={time}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => {
+                        setCheckIn(SHIFT_START);
+                        setCheckOut(time);
+                      }}
+                      className={`min-h-10 rounded-xl border px-3 py-2 text-xs font-semibold transition sm:text-sm ${
+                        selected
+                          ? "border-emerald-600 bg-emerald-50 text-emerald-900"
+                          : "border-black/10 bg-white text-black hover:bg-emerald-50"
+                      }`}
+                    >
+                      Finish {formatClockTime(time)}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1.5 text-[11px] text-baky-muted">
+                Time after {formatClockTime(SHIFT_END)} adds pay at the same per-minute rate.
+              </p>
+            </div>
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="text-xs font-semibold text-gray-700">
                 In time
@@ -703,8 +756,7 @@ function AttendanceDialog({
         )}
         {status === "Late" && checkIn && checkOut && checkOut >= checkIn && !validLateTimes && (
           <p className="mt-2 text-xs text-amber-800">
-            For Late status, in time must be after {formatClockTime(SHIFT_START)} or out time before{" "}
-            {formatClockTime(SHIFT_END)}.
+            For Late status, adjust the in time or out time from the scheduled shift.
           </p>
         )}
 
@@ -716,8 +768,8 @@ function AttendanceDialog({
         </div>
         {status === "Late" && validLateTimes && (
           <p className="mt-2 text-xs leading-relaxed text-baky-muted">
-            Late arrival and early departure are prorated against the {formatClockTime(SHIFT_START)}
-            –{formatClockTime(SHIFT_END)} shift.
+            Late arrival and early departure reduce pay; overtime after {formatClockTime(SHIFT_END)}
+            adds pay.
           </p>
         )}
 

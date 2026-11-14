@@ -70,6 +70,19 @@ create table if not exists public.expenses (
   created_at timestamptz not null default now()
 );
 
+-- 7. Staff Salary Payments (advances and monthly settlements)
+create table if not exists public.staff_salary_payments (
+  id text primary key,
+  staff_id text not null,
+  staff_name text not null,
+  salary_month date not null check (extract(day from salary_month) = 1),
+  payment_type text not null check (payment_type in ('Advance', 'Settlement')),
+  amount numeric(10, 2) not null check (amount > 0),
+  paid_on date not null default current_date,
+  notes text,
+  created_at timestamptz not null default now()
+);
+
 -- Enable Row Level Security (RLS)
 alter table public.categories enable row level security;
 alter table public.menu_items enable row level security;
@@ -77,11 +90,13 @@ alter table public.inventory enable row level security;
 alter table public.orders enable row level security;
 alter table public.staff enable row level security;
 alter table public.expenses enable row level security;
+alter table public.staff_salary_payments enable row level security;
 
 -- Drop existing policies if they exist before recreating (prevents 42710 error)
 drop policy if exists "Allow all operations on categories" on public.categories;
 drop policy if exists "Allow all operations on menu_items" on public.menu_items;
 drop policy if exists "Allow all operations on inventory" on public.inventory;
+drop policy if exists "Allow all operations on staff_salary_payments" on public.staff_salary_payments;
 drop policy if exists "Allow all operations on orders" on public.orders;
 drop policy if exists "Allow all operations on staff" on public.staff;
 drop policy if exists "Allow all operations on expenses" on public.expenses;
@@ -93,6 +108,7 @@ create policy "Allow all operations on inventory" on public.inventory for all us
 create policy "Allow all operations on orders" on public.orders for all using (true) with check (true);
 create policy "Allow all operations on staff" on public.staff for all using (true) with check (true);
 create policy "Allow all operations on expenses" on public.expenses for all using (true) with check (true);
+create policy "Allow all operations on staff_salary_payments" on public.staff_salary_payments for all using (true) with check (true);
 
 -- Safely add tables to Supabase Realtime publication if not already added
 do $$
@@ -114,6 +130,9 @@ begin
   end if;
   if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'expenses') then
     alter publication supabase_realtime add table public.expenses;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'staff_salary_payments') then
+    alter publication supabase_realtime add table public.staff_salary_payments;
   end if;
 end $$;
 

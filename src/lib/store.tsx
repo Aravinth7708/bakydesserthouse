@@ -89,6 +89,18 @@ export type StaffAttendance = {
   createdAt?: string;
 };
 
+export type SalaryPayment = {
+  id: string;
+  staffId: string;
+  staffName: string;
+  salaryMonth: string;
+  type: "Advance" | "Settlement";
+  amount: number;
+  paidOn: string;
+  notes?: string;
+  createdAt?: string;
+};
+
 export type UserRole = "Admin" | "Staff";
 
 export type ExpenseCategory =
@@ -157,6 +169,7 @@ type Store = {
   expenses: Expense[];
   staff: StaffMember[];
   attendance: StaffAttendance[];
+  salaryPayments: SalaryPayment[];
   currentUser: CurrentUser | null;
   isSynced: boolean;
   dateRange: DateRangeFilter;
@@ -213,6 +226,7 @@ type Store = {
     checkIn?: string,
     checkOut?: string,
   ) => Promise<void>;
+  recordSalaryPayment: (input: Omit<SalaryPayment, "id" | "createdAt">) => Promise<void>;
   addExpense: (input: {
     title: string;
     category: ExpenseCategory;
@@ -491,6 +505,7 @@ const LOCAL_ORDER_KEY = "baky_orders_v1";
 const LOCAL_EXPENSE_KEY = "baky_expenses_v1";
 const LOCAL_STAFF_KEY = "baky_staff_v1";
 const LOCAL_ATTENDANCE_KEY = "baky_attendance_v1";
+const LOCAL_SALARY_PAYMENTS_KEY = "baky_salary_payments_v1";
 const LOCAL_USER_KEY = "baky_user_v2";
 const LOCAL_OUTLET_KEY = "baky_outlet_v1";
 const SHOP_RESTORE_KEY = "baky_shop_restored_v4";
@@ -546,6 +561,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [expenses, setExpenses] = useState<Expense[]>(initialExpenses);
   const [staff, setStaff] = useState<StaffMember[]>(initialStaff);
   const [attendance, setAttendance] = useState<StaffAttendance[]>([]);
+  const [salaryPayments, setSalaryPayments] = useState<SalaryPayment[]>([]);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [orderNo, setOrderNo] = useState(3);
   const [isSynced, setIsSynced] = useState(false);
@@ -610,11 +626,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     const savedStaff = getLocal(LOCAL_STAFF_KEY, initialStaff);
     const savedAttendance = getLocal<StaffAttendance[]>(LOCAL_ATTENDANCE_KEY, []);
+    const savedSalaryPayments = getLocal<SalaryPayment[]>(LOCAL_SALARY_PAYMENTS_KEY, []);
     const savedUser = getLocal<any>(LOCAL_USER_KEY, null);
     const savedOutlet = getLocal<OutletInfo>(LOCAL_OUTLET_KEY, initialOutletInfo);
 
     setStaff(Array.isArray(savedStaff) && savedStaff.length > 0 ? savedStaff : initialStaff);
     setAttendance(Array.isArray(savedAttendance) ? savedAttendance : []);
+    setSalaryPayments(Array.isArray(savedSalaryPayments) ? savedSalaryPayments : []);
     setOutletInfo(savedOutlet || initialOutletInfo);
 
     if (
@@ -683,6 +701,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             .from("staff_attendance")
             .select("*")
             .order("attendance_date", { ascending: false }),
+          supabase.from("staff_salary_payments").select("*").order("paid_on", { ascending: false }),
         ]);
 
         if (!mounted) return;
@@ -694,6 +713,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const staffRes = results[4].status === "fulfilled" ? results[4].value : null;
         const expRes = results[5].status === "fulfilled" ? results[5].value : null;
         const attendanceRes = results[6].status === "fulfilled" ? results[6].value : null;
+        const salaryPaymentsRes = results[7].status === "fulfilled" ? results[7].value : null;
 
         if (catRes?.data && catRes.data.length > 0) {
           const loadedCats: Category[] = catRes.data.map((c: any) => ({
@@ -806,7 +826,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               date: row.attendance_date,
               status:
                 row.attendance_status ||
-                ((checkIn && checkIn > SHIFT_START) || (checkOut && checkOut < SHIFT_END)
+                ((checkIn && checkIn > SHIFT_START) || (checkOut && checkOut !== SHIFT_END)
                   ? "Late"
                   : "Present"),
               checkIn,
@@ -826,7 +846,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   status:
                     record.status ||
                     ((record.checkIn && record.checkIn > SHIFT_START) ||
-                    (record.checkOut && record.checkOut < SHIFT_END)
+                    (record.checkOut && record.checkOut !== SHIFT_END)
                       ? "Late"
                       : "Present"),
                 })),
@@ -834,6 +854,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             setLocal(LOCAL_ATTENDANCE_KEY, merged);
             return merged;
           });
+        }
+
+        if (salaryPaymentsRes?.data) {
+          const loadedSalaryPayments: SalaryPayment[] = salaryPaymentsRes.data.map((row: any) => ({
+            id: row.id,
+            staffId: row.staff_id,
+            staffName: row.staff_name,
+            salaryMonth: String(row.salary_month).slice(0, 7),
+            type: row.payment_type,
+            amount: Number(row.amount),
+            paidOn: row.paid_on,
+            notes: row.notes || undefined,
+            createdAt: row.created_at,
+          }));
+          setSalaryPayments(loadedSalaryPayments);
+          setLocal(LOCAL_SALARY_PAYMENTS_KEY, loadedSalaryPayments);
         }
 
         setIsSynced(true);
@@ -878,6 +914,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       expenses,
       staff,
       attendance,
+      salaryPayments,
       currentUser,
       isSynced,
       dateRange,
@@ -1463,8 +1500,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           status === "Late" &&
           checkIn &&
           checkOut &&
-          checkIn <= SHIFT_START &&
-          checkOut >= SHIFT_END
+          checkIn === SHIFT_START &&
+          checkOut === SHIFT_END
         ) {
           toast.error("Late attendance needs a late arrival or early departure time.");
           return;
@@ -1485,9 +1522,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         };
         const pay =
           status === "Present"
-            ? { lateMinutes: 0, earlyLeaveMinutes: 0, deduction: 0, earned: record.dailyPay }
+            ? {
+                lateMinutes: 0,
+                earlyLeaveMinutes: 0,
+                overtimeMinutes: 0,
+                deduction: 0,
+                earned: record.dailyPay,
+              }
             : status === "Absent"
-              ? { lateMinutes: 0, earlyLeaveMinutes: 0, deduction: record.dailyPay, earned: 0 }
+              ? {
+                  lateMinutes: 0,
+                  earlyLeaveMinutes: 0,
+                  overtimeMinutes: 0,
+                  deduction: record.dailyPay,
+                  earned: 0,
+                }
               : calculateAttendancePay(checkIn!, checkOut!, record.dailyPay);
         const salaryExpenseId = `attendance_salary_${date}_${staffId}`;
         const salaryExpense: Expense | null =
@@ -1501,7 +1550,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 notes:
                   status === "Present"
                     ? `Marked present; full shift wage ${record.dailyPay}.`
-                    : `Late shift ${SHIFT_START}-${SHIFT_END}; check-in ${checkIn}; check-out ${checkOut}; late ${pay.lateMinutes} min; early departure ${pay.earlyLeaveMinutes} min; deduction INR ${pay.deduction.toFixed(2)}.`,
+                    : `Shift ${SHIFT_START}-${SHIFT_END}; in ${checkIn}; out ${checkOut}; late ${pay.lateMinutes} min; early ${pay.earlyLeaveMinutes} min; overtime ${pay.overtimeMinutes} min; deduction INR ${pay.deduction.toFixed(2)}.`,
                 date,
                 createdAt: new Date().toISOString(),
               }
@@ -1560,6 +1609,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           status === "Absent"
             ? `${member.name} marked absent. Salary: INR 0.`
             : `${member.name} marked ${status.toLowerCase()}. Salary: INR ${pay.earned.toFixed(2)}.`,
+        );
+      },
+      recordSalaryPayment: async (input) => {
+        const payment: SalaryPayment = {
+          ...input,
+          id: generateId("salary_payment"),
+          notes: input.notes?.trim() || "",
+          createdAt: new Date().toISOString(),
+        };
+
+        if (supabase && isSupabaseConfigured) {
+          const { error } = await supabase.from("staff_salary_payments").insert({
+            id: payment.id,
+            staff_id: payment.staffId,
+            staff_name: payment.staffName,
+            salary_month: `${payment.salaryMonth}-01`,
+            payment_type: payment.type,
+            amount: payment.amount,
+            paid_on: payment.paidOn,
+            notes: payment.notes,
+          });
+          if (error) {
+            throw new Error(
+              `Could not save salary payment: ${error.message}. Check the salary settlement SQL migration.`,
+            );
+          }
+        }
+
+        setSalaryPayments((previous) => {
+          const next = [payment, ...previous];
+          setLocal(LOCAL_SALARY_PAYMENTS_KEY, next);
+          return next;
+        });
+        toast.success(
+          `${payment.type === "Advance" ? "Advance" : "Salary payment"} of INR ${payment.amount.toLocaleString("en-IN")} recorded for ${payment.staffName}.`,
         );
       },
       addExpense: async (input) => {
@@ -1872,6 +1956,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       expenses,
       staff,
       attendance,
+      salaryPayments,
       currentUser,
       orderNo,
       isSynced,

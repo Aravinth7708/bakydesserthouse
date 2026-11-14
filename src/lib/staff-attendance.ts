@@ -5,6 +5,7 @@ export const DAILY_STAFF_PAY = 150;
 export type AttendancePay = {
   lateMinutes: number;
   earlyLeaveMinutes: number;
+  overtimeMinutes: number;
   deduction: number;
   earned: number;
 };
@@ -21,17 +22,21 @@ export function calculateAttendancePay(
 ): AttendancePay {
   const scheduledStart = timeToMinutes(SHIFT_START);
   const scheduledEnd = timeToMinutes(SHIFT_END);
+  const shiftMinutes = scheduledEnd - scheduledStart;
   const lateMinutes = Math.max(0, timeToMinutes(checkIn) - scheduledStart);
-  const earlyLeaveMinutes = Math.max(0, scheduledEnd - timeToMinutes(checkOut));
-  const missedMinutes = Math.min(scheduledEnd - scheduledStart, lateMinutes + earlyLeaveMinutes);
+  const checkOutMinutes = timeToMinutes(checkOut);
+  const earlyLeaveMinutes = Math.max(0, scheduledEnd - checkOutMinutes);
+  const overtimeMinutes = Math.max(0, checkOutMinutes - scheduledEnd);
+  const missedMinutes = Math.min(shiftMinutes, lateMinutes + earlyLeaveMinutes);
   const earned = Math.round(
-    Math.max(0, dailyPay - (dailyPay * missedMinutes) / (scheduledEnd - scheduledStart)),
+    Math.max(0, (dailyPay * (shiftMinutes - missedMinutes + overtimeMinutes)) / shiftMinutes),
   );
   const deduction = Math.max(0, dailyPay - earned);
 
   return {
     lateMinutes,
     earlyLeaveMinutes,
+    overtimeMinutes,
     deduction,
     earned,
   };
